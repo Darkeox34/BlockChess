@@ -1,0 +1,54 @@
+package gg.ethereallabs.blockChess
+
+import gg.ethereallabs.blockChess.command.GameCommand
+import net.kyori.adventure.text.minimessage.MiniMessage
+import org.bukkit.Material
+import org.bukkit.plugin.java.JavaPlugin
+
+class BlockChess : JavaPlugin() {
+
+    companion object {
+        lateinit var instance : BlockChess
+        lateinit var mm: MiniMessage
+        lateinit var whitePiecesByChar: Map<String, Material>
+        lateinit var blackPiecesByChar: Map<String, Material>
+    }
+
+    val fenToName : HashMap<String, String> = hashMapOf(
+        "p" to "Pawn",
+        "r" to "Rook",
+        "n" to "Knight",
+        "b" to "Bishop",
+        "q" to "Queen",
+        "k" to "King"
+    )
+
+    val whitePieces : HashMap<Material, String> = hashMapOf(
+        Material.BIRCH_BUTTON to "p",
+        Material.END_STONE_BRICK_WALL to "r",
+        Material.IRON_HORSE_ARMOR to "n",
+        Material.END_ROD to "b",
+        Material.WHITE_CANDLE to "q",
+        Material.IRON_BLOCK to "k"
+    )
+    val blackPieces : HashMap<Material, String> = hashMapOf(
+        Material.POLISHED_BLACKSTONE_BUTTON to "p",
+        Material.POLISHED_BLACKSTONE_BRICK_WALL to "r",
+        Material.LEATHER_HORSE_ARMOR to "n",
+        Material.LIGHTNING_ROD to "b",
+        Material.BLACK_CANDLE to "q",
+        Material.NETHERITE_BLOCK to "k"
+    )
+
+    override fun onEnable() {
+        instance = this
+        mm = MiniMessage.miniMessage()
+        whitePiecesByChar = whitePieces.entries.associate { (k, v) -> v to k }
+        blackPiecesByChar = blackPieces.entries.associate { (k, v) -> v to k }
+        getCommand("chess")?.setExecutor(GameCommand())
+    }
+
+    override fun onDisable() {
+
+    }
+}

@@ -1,0 +1,9 @@
+name: BlockChess
+version: '1.0'
+main: gg.ethereallabs.blockChess.BlockChess
+api-version: '1.21'
+commands:
+  chess:
+    description: Main command for HeavenKits
+    usage: /chess
+    aliases: [chess]
