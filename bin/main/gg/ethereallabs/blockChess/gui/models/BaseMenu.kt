@@ -39,9 +39,11 @@ abstract class BaseMenu(private val title: Component, private val size: Int) : L
     fun onClick(e: InventoryClickEvent) {
         if (e.whoClicked !is Player) return
 
-        if (e.inventory === inv) {
+        // If our menu is open as the top inventory, intercept clicks both on top and bottom
+        if (e.view.topInventory === inv) {
             e.isCancelled = true
-            handleClick(e.whoClicked as Player?, e.slot, e)
+            // Use rawSlot to identify clicks across both inventories consistently
+            handleClick(e.whoClicked as Player?, e.rawSlot, e)
         }
     }
 
