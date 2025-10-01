@@ -4,6 +4,10 @@ import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Side
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.gui.GameGUI
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.adventure.text.event.HoverEvent
+import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 
@@ -31,6 +35,20 @@ class Game {
         guiWhite?.open(pWhite)
         guiBlack?.open(pBlack)
         startTimer()
+    }
+
+    fun end(){
+        val fen = board.fen
+        stop()
+        val message = Component.text("FEN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
+            .append(
+                Component.text(fen, TextColor.color(0x00FF00))
+                    .clickEvent(ClickEvent.copyToClipboard(fen))
+                    .hoverEvent(HoverEvent.showText(Component.text("Click to copy FEN")))
+            )
+
+        white?.sendMessage(message)
+        black?.sendMessage(message)
     }
 
     fun stop() {
@@ -74,5 +92,28 @@ class Game {
         // Redraw both UIs after move
         guiWhite?.draw(white)
         guiBlack?.draw(black)
+
+        if(board.isStaleMate()){
+            white?.sendMessage("The match has ended: Stale!")
+            black?.sendMessage("The match has ended: Stale!")
+            end()
+        }
+
+        if(board.isMated()){
+            if (board.sideToMove == Side.WHITE) {
+                white?.sendMessage("Checkmate. Black won")
+                black?.sendMessage("Checkmate. You won")
+            } else {
+                white?.sendMessage("Checkmate. You won")
+                black?.sendMessage("Checkmate. White won")
+            }
+            end()
+        }
+
+        if(board.isDraw){
+            white?.sendMessage("The match has ended: Draw!")
+            black?.sendMessage("The match has ended: Draw!")
+            end()
+        }
     }
 }
