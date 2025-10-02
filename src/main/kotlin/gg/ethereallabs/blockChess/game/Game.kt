@@ -4,11 +4,16 @@ import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Side
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.gui.GameGUI
+import gg.ethereallabs.blockChess.events.ChessListener
+import com.github.bhlangonijr.chesslib.BoardEventType
+import com.github.bhlangonijr.chesslib.move.Move
+import com.github.bhlangonijr.chesslib.move.MoveList
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
+import org.bukkit.Sound
 import org.bukkit.entity.Player
 
 class Game {
@@ -17,6 +22,8 @@ class Game {
 
     var white: Player? = null
     var black: Player? = null
+
+    var moveList: MoveList = MoveList()
 
     private var taskId: Int = -1
     var whiteTimeMs: Long = 5 * 60 * 1000
@@ -34,21 +41,24 @@ class Game {
         guiBlack = GameGUI(this, false)
         guiWhite?.open(pWhite)
         guiBlack?.open(pBlack)
+        board.addEventListener(BoardEventType.ON_MOVE, ChessListener())
         startTimer()
     }
 
     fun end(){
-        val fen = board.fen
-        stop()
-        val message = Component.text("FEN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
-            .append(
-                Component.text(fen, TextColor.color(0x00FF00))
-                    .clickEvent(ClickEvent.copyToClipboard(fen))
-                    .hoverEvent(HoverEvent.showText(Component.text("Click to copy FEN")))
-            )
+        val fen = moveList.fen
+        if(fen != null) {
+            val message = Component.text("FEN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
+                .append(
+                    Component.text(fen, TextColor.color(0x00FF00))
+                        .clickEvent(ClickEvent.copyToClipboard(fen))
+                        .hoverEvent(HoverEvent.showText(Component.text("Click to copy FEN")))
+                )
 
-        white?.sendMessage(message)
-        black?.sendMessage(message)
+            white?.sendMessage(message)
+            black?.sendMessage(message)
+        }
+        GameManager.end(this)
     }
 
     fun stop() {
@@ -77,7 +87,7 @@ class Game {
                     BlockChess.mm.deserialize("<red>Tempo scaduto: vince il Nero.")
                 else
                     BlockChess.mm.deserialize("<red>Tempo scaduto: vince il Bianco.")
-                GameManager.end(this, reason)
+                end()
             } else {
                 // Refresh clock display for both
                 guiWhite?.draw(white)
@@ -86,17 +96,20 @@ class Game {
         }, 20L, 20L)
     }
 
-    fun onMoveMade() {
-        // Switch side automatically handled by board
-        // No increment (5+0), timer continues for the next side
-        // Redraw both UIs after move
+    fun onMoveMade(move: Move) {
         guiWhite?.draw(white)
         guiBlack?.draw(black)
+
+        moveList.add(move)
+
+        if(white != null)
+            white?.playSound(white!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
+        if(black != null)
+            black?.playSound(black!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
 
         if(board.isStaleMate()){
             white?.sendMessage("The match has ended: Stale!")
             black?.sendMessage("The match has ended: Stale!")
-            end()
         }
 
         if(board.isMated()){

@@ -79,17 +79,15 @@ object GameManager {
         return true
     }
 
-    fun end(game: Game, reason: Component) {
+    fun end(game: Game) {
         val white = game.white
         val black = game.black
         game.stop()
         if (white != null) {
             activeGamesByPlayer.remove(white.uniqueId)
-            white.sendMessage(reason)
         }
         if (black != null) {
             activeGamesByPlayer.remove(black.uniqueId)
-            black.sendMessage(reason)
         }
     }
 }

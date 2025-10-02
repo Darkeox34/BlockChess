@@ -2,6 +2,7 @@ package gg.ethereallabs.blockChess.gui.models
 
 import gg.ethereallabs.blockChess.BlockChess
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.Bukkit
@@ -24,7 +25,7 @@ abstract class BaseMenu(private val title: Component, private val size: Int) : L
     constructor(title: String, size: Int) : this(LegacyComponentSerializer.legacyAmpersand().deserialize(title), size)
 
     fun open(p: Player) {
-        inv = Bukkit.createInventory(null, size, title)
+        inv = Bukkit.createInventory(null, size, title.color(NamedTextColor.WHITE))
         Bukkit.getPluginManager().registerEvents(this, BlockChess.instance)
         viewers.add(p.getUniqueId())
         draw(p)

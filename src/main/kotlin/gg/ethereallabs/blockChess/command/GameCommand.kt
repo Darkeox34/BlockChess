@@ -28,6 +28,10 @@ class GameCommand : CommandExecutor {
         }
 
         when (args[0].lowercase()) {
+            "end" -> {
+                val game = GameManager.getGame(sender)
+                game?.end() ?: return true
+            }
             "invite" -> {
                 if (args.size < 2) {
                     sender.sendMessage(BlockChess.mm.deserialize("<red>Specifica un giocatore: /chess invite <player>"))
