@@ -79,17 +79,26 @@ object GameManager {
         return true
     }
 
-    fun end(game: Game, reason: Component) {
+    fun end(game: Game) {
         val white = game.white
         val black = game.black
         game.stop()
         if (white != null) {
             activeGamesByPlayer.remove(white.uniqueId)
-            white.sendMessage(reason)
         }
         if (black != null) {
             activeGamesByPlayer.remove(black.uniqueId)
-            black.sendMessage(reason)
         }
+    }
+
+    fun startBot(player: Player, difficulty: Int) {
+        if (activeGamesByPlayer.containsKey(player.uniqueId)) {
+            player.sendMessage(BlockChess.mm.deserialize("<red>Sei già in una partita."))
+            return
+        }
+        val game = Game()
+        game.startAgainstBot(player, difficulty, true)
+        activeGamesByPlayer[player.uniqueId] = game
+        player.sendMessage(BlockChess.mm.deserialize("<gray>Partita contro <yellow>Patricia</yellow> avviata. Difficoltà: <aqua>$difficulty</aqua>"))
     }
 }

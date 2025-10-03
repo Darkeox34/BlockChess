@@ -1,6 +1,7 @@
 package gg.ethereallabs.blockChess
 
 import gg.ethereallabs.blockChess.command.GameCommand
+import gg.ethereallabs.blockChess.config.Config
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Material
 import org.bukkit.plugin.java.JavaPlugin
@@ -25,7 +26,7 @@ class BlockChess : JavaPlugin() {
 
     val whitePieces : HashMap<Material, String> = hashMapOf(
         Material.BIRCH_BUTTON to "p",
-        Material.END_STONE_BRICK_WALL to "r",
+        Material.IRON_DOOR to "r",
         Material.IRON_HORSE_ARMOR to "n",
         Material.END_ROD to "b",
         Material.WHITE_CANDLE to "q",
@@ -33,7 +34,7 @@ class BlockChess : JavaPlugin() {
     )
     val blackPieces : HashMap<Material, String> = hashMapOf(
         Material.POLISHED_BLACKSTONE_BUTTON to "p",
-        Material.POLISHED_BLACKSTONE_BRICK_WALL to "r",
+        Material.DARK_OAK_DOOR to "r",
         Material.LEATHER_HORSE_ARMOR to "n",
         Material.LIGHTNING_ROD to "b",
         Material.BLACK_CANDLE to "q",
@@ -43,6 +44,8 @@ class BlockChess : JavaPlugin() {
     override fun onEnable() {
         instance = this
         mm = MiniMessage.miniMessage()
+        saveDefaultConfig()
+        Config.load(this)
         whitePiecesByChar = whitePieces.entries.associate { (k, v) -> v to k }
         blackPiecesByChar = blackPieces.entries.associate { (k, v) -> v to k }
         getCommand("chess")?.setExecutor(GameCommand())

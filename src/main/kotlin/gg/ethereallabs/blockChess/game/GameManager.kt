@@ -17,42 +17,42 @@ object GameManager {
 
     fun invite(inviter: Player, invitee: Player) {
         if (inviter.uniqueId == invitee.uniqueId) {
-            inviter.sendMessage(BlockChess.mm.deserialize("<red>Non puoi invitare te stesso."))
+            inviter.sendMessage(BlockChess.mm.deserialize("<red>You can't invite yourself."))
             return
         }
 
         if (activeGamesByPlayer.containsKey(inviter.uniqueId) || activeGamesByPlayer.containsKey(invitee.uniqueId)) {
-            inviter.sendMessage(BlockChess.mm.deserialize("<red>Tu o il giocatore invitato siete già in partita."))
+            inviter.sendMessage(BlockChess.mm.deserialize("<red>You or the invited player are already playing a match."))
             return
         }
 
         val inv = Invitation(inviter.uniqueId, invitee.uniqueId)
         pendingInvites[invitee.uniqueId] = inv
 
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Invito inviato a <yellow>${invitee.name}</yellow>."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<yellow>${inviter.name}</yellow> ti ha invitato a giocare a scacchi (5+0)."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Usa <aqua>/chess accept ${inviter.name}</aqua> per accettare, <red>/chess decline ${inviter.name}</red> per rifiutare."))
+        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Invite sent to <yellow>${invitee.name}</yellow>."))
+        invitee.sendMessage(BlockChess.mm.deserialize("<yellow>${inviter.name}</yellow> invited you to play chess (5+0)."))
+        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Use <aqua>/chess accept ${inviter.name}</aqua> to accept, <red>/chess decline ${inviter.name}</red> to decline."))
 
         // Auto-expire
         Bukkit.getScheduler().runTaskLater(BlockChess.instance, Runnable {
             val current = pendingInvites[invitee.uniqueId]
             if (current != null && current.inviter == inviter.uniqueId) {
                 pendingInvites.remove(invitee.uniqueId)
-                inviter.sendMessage(BlockChess.mm.deserialize("<gray>L'invito a <yellow>${invitee.name}</yellow> è scaduto."))
-                invitee.sendMessage(BlockChess.mm.deserialize("<gray>L'invito di <yellow>${inviter.name}</yellow> è scaduto."))
+                inviter.sendMessage(BlockChess.mm.deserialize("<gray>The invite to <yellow>${invitee.name}</yellow> has expired."))
+                invitee.sendMessage(BlockChess.mm.deserialize("<gray>The invite to <yellow>${inviter.name}</yellow> has expired."))
             }
         }, 20L * 60)
     }
 
     fun accept(invitee: Player, inviterName: String): Boolean {
         val inviter = Bukkit.getPlayerExact(inviterName) ?: run {
-            invitee.sendMessage(BlockChess.mm.deserialize("<red>Giocatore non online: ${inviterName}"))
+            invitee.sendMessage(BlockChess.mm.deserialize("<red>Player not online: $inviterName"))
             return false
         }
 
         val inv = pendingInvites[invitee.uniqueId]
         if (inv == null || inv.inviter != inviter.uniqueId) {
-            invitee.sendMessage(BlockChess.mm.deserialize("<red>Nessun invito valido da ${inviter.name}."))
+            invitee.sendMessage(BlockChess.mm.deserialize("<red>No valid invites from ${inviter.name}."))
             return false
         }
 
@@ -64,8 +64,8 @@ object GameManager {
         activeGamesByPlayer[inviter.uniqueId] = game
         activeGamesByPlayer[invitee.uniqueId] = game
 
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Partita avviata contro <yellow>${invitee.name}</yellow>. Bianco: <white>${inviter.name}</white>"))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Partita avviata contro <yellow>${inviter.name}</yellow>. Nero: <dark_gray>${invitee.name}</dark_gray>"))
+        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Match started against <yellow>${invitee.name}</yellow>. White: <white>${inviter.name}</white>"))
+        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Match started against <yellow>${inviter.name}</yellow>. Black: <dark_gray>${invitee.name}</dark_gray>"))
         return true
     }
 
@@ -74,8 +74,8 @@ object GameManager {
         val inv = pendingInvites[invitee.uniqueId]
         if (inv == null || inv.inviter != inviter.uniqueId) return false
         pendingInvites.remove(invitee.uniqueId)
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>${invitee.name} ha rifiutato l'invito."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Hai rifiutato l'invito di ${inviter.name}."))
+        inviter.sendMessage(BlockChess.mm.deserialize("<gray>${invitee.name} has declined your invite."))
+        invitee.sendMessage(BlockChess.mm.deserialize("<gray>You have declines ${inviter.name}'s invite."))
         return true
     }
 
@@ -89,5 +89,16 @@ object GameManager {
         if (black != null) {
             activeGamesByPlayer.remove(black.uniqueId)
         }
+    }
+
+    fun startBot(player: Player, difficulty: Int) {
+        if (activeGamesByPlayer.containsKey(player.uniqueId)) {
+            player.sendMessage(BlockChess.mm.deserialize("<red>You already are in a match."))
+            return
+        }
+        val game = Game()
+        game.startAgainstBot(player, difficulty, true)
+        activeGamesByPlayer[player.uniqueId] = game
+        player.sendMessage(BlockChess.mm.deserialize("<gray>Match against <yellow>Stockfish</yellow> started. Difficulty: <aqua>$difficulty</aqua>"))
     }
 }

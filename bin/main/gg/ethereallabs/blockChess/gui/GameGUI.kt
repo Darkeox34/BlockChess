@@ -1,9 +1,11 @@
 package gg.ethereallabs.blockChess.gui
 
+import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.Square
 import gg.ethereallabs.blockChess.BlockChess
 import com.github.bhlangonijr.chesslib.move.Move
+import gg.ethereallabs.blockChess.config.Config
 import gg.ethereallabs.blockChess.game.Game
 import gg.ethereallabs.blockChess.gui.models.BaseMenu
 import net.kyori.adventure.text.Component
@@ -12,8 +14,16 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.LeatherArmorMeta
 
-class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess", 54) {
+class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
+    when{
+        !Config.resourcepack -> "BlockChess"
+        playerIsWhite -> "<shift:-48>ꔉ"
+        else -> "<shift:-48>ꔈ"
+    },
+    54
+) {
 
     private var selected: Square? = null
     private var legalFromSelected: List<Move> = emptyList()
@@ -70,53 +80,106 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess
         }
     }
 
+    fun getClockItem() : ItemStack{
+        val clockItem = if(Config.resourcepack){
+            createItem(Component.text("Remaining Time"), Material.IRON_NUGGET, mutableListOf(
+                BlockChess.mm.deserialize("<gray>White: <yellow>${formatTime(game.whiteTimeMs)}"),
+                BlockChess.mm.deserialize("<gray>Black: <yellow>${formatTime(game.blackTimeMs)}")
+            ), 1)
+        }
+        else{
+            createItem(Component.text("Remaining Time"), Material.CLOCK, mutableListOf(
+                BlockChess.mm.deserialize("<gray>White: <yellow>${formatTime(game.whiteTimeMs)}"),
+                BlockChess.mm.deserialize("<gray>Black: <yellow>${formatTime(game.blackTimeMs)}")
+            ), 1)
+        }
+        val clockMeta = clockItem.itemMeta
+        clockMeta.setCustomModelData(449)
+        clockItem.setItemMeta(clockMeta)
+
+        return clockItem
+    }
+
+    fun getSurrendItem() : ItemStack{
+        val surrendItem = if(Config.resourcepack){
+            createItem(Component.text("Surrender"), Material.IRON_INGOT, mutableListOf(), 1)
+        }
+        else{
+            createItem(Component.text("Surrender"), Material.WHITE_BANNER, mutableListOf(), 1)
+        }
+        val surrendMeta = surrendItem.itemMeta
+        surrendMeta.setCustomModelData(449)
+        surrendItem.setItemMeta(surrendMeta)
+
+        return surrendItem
+    }
+
+    fun getDrawItem() : ItemStack{
+        val drawItem = if(Config.resourcepack){
+            createItem(Component.text("Request Draw"), Material.GOLD_INGOT, mutableListOf(), 1)
+        }
+        else{
+            createItem(Component.text("Request Draw"), Material.GRAY_BANNER, mutableListOf(), 1)
+        }
+        val drawMeta = drawItem.itemMeta
+        drawMeta.setCustomModelData(449)
+        drawItem.setItemMeta(drawMeta)
+
+        return drawItem
+    }
+
+    fun giveCapturedPiece(player: Player, piece: Piece) {
+        val inv = player.inventory
+
+        val fen = piece.fenSymbol.lowercase()
+        val material = if (piece.pieceSide == Side.WHITE)
+            BlockChess.whitePiecesByChar[fen]
+        else
+            BlockChess.blackPiecesByChar[fen]
+
+        if(material != null) {
+            val name = BlockChess.instance.fenToName[fen] ?: "Unknown"
+            val item = createItem(
+                Component.text(name), material, mutableListOf(
+                    Component.text("Eaten").decoration(TextDecoration.ITALIC, false),
+                ), 1
+            )
+
+            for (slot in 0..8) {
+                val current = inv.getItem(slot)
+                if (current != null && current.type == item.type) {
+                    current.amount += 1
+                    inv.setItem(slot, current)
+                    return
+                }
+            }
+
+            for (slot in 0..8) {
+                if (inv.getItem(slot) == null) {
+                    inv.setItem(slot, item)
+                    return
+                }
+            }
+        }
+    }
+
     override fun draw(p: Player?) {
         inv?.clear()
         p?.inventory?.clear()
 
         val board = game.board
 
-        // Draw the numbered rightmost column (8 panes total)
-        for (visualRank in 0..7) {
-            val number = if (playerIsWhite) 8 - visualRank else visualRank + 1
+        val clock = getClockItem()
 
-            val item = createItem(Component.text(number.toString()), Material.GRAY_STAINED_GLASS_PANE, mutableListOf(), 1)
+        inv?.setItem(26, clock)
 
-            if (visualRank < 6) {
-                // Place in chest inventory's rightmost column
-                val chestSlot = visualRank * 9 + 8
-                inv?.setItem(chestSlot, item)
-            } else {
-                // Place in player inventory's rightmost column
-                val playerInvRow = visualRank - 6 // 0 or 1
-                val playerSlot = playerInvRow * 9 + 8 + 9
-                p?.inventory?.setItem(playerSlot, item)
-            }
-        }
+        val surrender = getSurrendItem()
 
-        // Draw the lettered bottom row in player inventory
-        for (visualFile in 0..7) {
-            val letter = ('A' + visualFile).toString()
+        inv?.setItem(53, surrender)
 
-            val item = createItem(Component.text(letter), Material.GRAY_STAINED_GLASS_PANE, mutableListOf(), 1)
-            val playerSlot = 2 * 9 + visualFile + 9
-            p?.inventory?.setItem(playerSlot, item)
-        }
+        val draw = getDrawItem()
 
-        val clock = createItem(Component.text("Remaining Time"), Material.CLOCK, mutableListOf(
-            BlockChess.mm.deserialize("<gray>White: <yellow>${formatTime(game.whiteTimeMs)}"),
-            BlockChess.mm.deserialize("<gray>Black: <yellow>${formatTime(game.blackTimeMs)}")
-        ), 1)
-
-        p?.inventory?.setItem(35, clock)
-
-        val surrender = createItem(Component.text("Surrender"), Material.WHITE_BANNER, mutableListOf(), 1)
-
-        p?.inventory?.setItem(3, surrender)
-
-        val draw = createItem(Component.text("Request Draw"), Material.GRAY_BANNER, mutableListOf(), 1)
-
-        p?.inventory?.setItem(5, draw)
+        inv?.setItem(44, draw)
 
         for (visualRank in 0..7) {
             for (visualFile in 0..7) {
@@ -144,6 +207,16 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess
                     Component.text(square.name).decoration(TextDecoration.ITALIC, false),
                 ), 1)
 
+                val meta = item.itemMeta
+                meta.setCustomModelData(449)
+
+                if(item.type == Material.LEATHER_HORSE_ARMOR){
+                    val leatherArmorMeta : LeatherArmorMeta = item.itemMeta as LeatherArmorMeta
+                    leatherArmorMeta.setColor(null)
+                }
+
+                item.setItemMeta(meta)
+
                 // Map visual coordinates to inventory slots
                 if (visualRank < 6) {
                     // Place in chest inventory (top 6 rows of the board)
@@ -160,6 +233,17 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess
     }
 
     override fun handleClick(p: Player?, slot: Int, e: InventoryClickEvent?) {
+        when(slot) {
+            53 -> { // Surrender
+                game.end()
+                return
+            }
+            44 -> { // Draw
+
+                return
+            }
+        }
+
         val clickedSquare = squareFromRawSlot(slot) ?: return
 
         val sideViewing = if (playerIsWhite) Side.WHITE else Side.BLACK
@@ -181,7 +265,7 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess
             legalFromSelected = moves.filter { it.from == clickedSquare }
             selected = clickedSquare
 
-            // Overlay legal moves
+
             for (mv in legalFromSelected) {
                 val target = mv.to
                 val targetPiece = board.getPiece(target)
@@ -201,20 +285,32 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu("BlockChess
         val targetMove = legalFromSelected.firstOrNull { it.to == clickedSquare }
         if (targetMove != null) {
             try {
+                if(targetMove.promotion != Piece.NONE) {
+                    BlockChess.instance.logger.info("${p?.name} ha promosso a ${targetMove.promotion}")
+                }
+                val oldPiece = game.board.getPiece(targetMove.to)
+                val movingPiece = game.board.getPiece(targetMove.from)
                 board.doMove(targetMove)
+                if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
+                    if (movingPiece.pieceSide == Side.WHITE && playerIsWhite && p != null) {
+                        giveCapturedPiece(p, oldPiece)
+                    }
+                    else if (movingPiece.pieceSide == Side.BLACK && !playerIsWhite && p != null) {
+                        giveCapturedPiece(p, oldPiece)
+                    }
+                }
             } catch (_: Exception) {
                 // ignore if something goes wrong
             }
             selected = null
             legalFromSelected = emptyList()
-            game.onMoveMade()
+            game.onMoveMade(targetMove)
             return
         }
 
-        // Allow reselection if clicked on another own piece
         val piece = board.getPiece(clickedSquare)
         if (piece != null && piece.pieceType != null && piece.pieceType.name != "NONE" && piece.pieceSide == sideViewing) {
-            // Clear old overlays by redrawing
+
             draw(p)
             val moves = try { board.legalMoves() } catch (_: Exception) { emptyList() }
             legalFromSelected = moves.filter { it.from == clickedSquare }

@@ -1,2 +1,4 @@
 resourcepack:
   enabled: true
+engine:
+  path: plugins/BlockChess/stockfish.exe
