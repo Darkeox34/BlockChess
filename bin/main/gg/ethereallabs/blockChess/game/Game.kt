@@ -36,7 +36,7 @@ class Game {
     private var guiWhite: GameGUI? = null
     private var guiBlack: GameGUI? = null
 
-    // Bot/Engine integration
+    // Engine
     var againstBot: Boolean = false
     private var engineSide: Side? = null
     private var engine: UciEngine? = null
@@ -76,10 +76,10 @@ class Game {
         engine = UciEngine(Config.enginePath)
         try {
             engine!!.start()
-            engine!!.init(engineSkill)
-            human.sendMessage(BlockChess.mm.deserialize("<gray>Patricia inizializzata (skill <aqua>${engineSkill}</aqua>)."))
+            engine!!.initLevel(engineSkill)
+            human.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish initialized (skill <aqua>${engineSkill}</aqua>)."))
         } catch (ex: Exception) {
-            human.sendMessage(BlockChess.mm.deserialize("<red>Impossibile avviare la chess engine: ${ex.message}"))
+            human.sendMessage(BlockChess.mm.deserialize("<red>Impossible to start chess engine: ${ex.message}"))
         }
 
         startTimer()
@@ -94,11 +94,11 @@ class Game {
         val fen = moveList.toString()
 
         if(fen != null) {
-            val message = Component.text("FAN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
+            val message = Component.text("PGN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
                 .append(
                     Component.text(fen, TextColor.color(0x00FF00))
                         .clickEvent(ClickEvent.copyToClipboard(fen))
-                        .hoverEvent(HoverEvent.showText(Component.text("Click to copy FEN")))
+                        .hoverEvent(HoverEvent.showText(Component.text("Click to copy PGN")))
                 )
 
             white?.sendMessage(message)
@@ -133,9 +133,9 @@ class Game {
             if (whiteTimeMs <= 0 || blackTimeMs <= 0) {
                 val loser = if (whiteTimeMs <= 0) white else black
                 val reason = if (loser === white)
-                    BlockChess.mm.deserialize("<red>Tempo scaduto: vince il Nero.")
+                    BlockChess.mm.deserialize("<red>Out of time: Black Won.")
                 else
-                    BlockChess.mm.deserialize("<red>Tempo scaduto: vince il Bianco.")
+                    BlockChess.mm.deserialize("<red>Out of time: White Won.")
                 end()
             } else {
                 // Refresh clock display for both
@@ -190,28 +190,38 @@ class Game {
         val wtime = whiteTimeMs
         val btime = blackTimeMs
         val human = if (engineSide == Side.WHITE) black else white
-        human?.sendMessage(BlockChess.mm.deserialize("<gray>Patricia sta pensando…</gray>"))
+        human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish is thinking…</gray>"))
+
         Bukkit.getScheduler().runTaskAsynchronously(BlockChess.instance, Runnable {
             try {
                 engine!!.positionFen(fen)
-                var best: String = ""
-                try {
-                    best = engine!!.goBestMoveWTimeBTime(wtime, btime, 0, 0)
+                val best: String = try {
+                    if ((engineSkill ?: 5) in 1..4) {
+                        val movetime = when(engineSkill) {
+                            1 -> 50L
+                            2 -> 100L
+                            3 -> 150L
+                            4 -> 200L
+                            else -> 200L
+                        }
+                        engine!!.goBestMoveMovetime(movetime)
+                    } else {
+                        engine!!.goBestMoveWTimeBTime(wtime, btime, 0, 0)
+                    }
                 } catch (_: Exception) {
                     val alloc = ((if (board.sideToMove == Side.WHITE) wtime else btime) / 20).coerceIn(100, 2000)
-                    best = engine!!.goBestMoveMovetime(alloc.toLong())
+                    engine!!.goBestMoveMovetime(alloc.toLong())
                 }
-                human?.sendMessage(BlockChess.mm.deserialize("<gray>Patricia ha scelto: <yellow>${best}</yellow></gray>"))
-                // Apply move on main thread
+
+                human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish choose: <yellow>${best}</yellow></gray>"))
+
+                // Applica la mossa sul main thread
                 Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
                     try {
                         val mv = uciToLegalMove(best)
                         if (mv != null) {
                             board.doMove(mv)
                             onMoveMade(mv)
-                        } else {
-                            val legals = try { board.legalMoves() } catch (_: Exception) { emptyList<Move>() }
-                            val legalsStr = legals.joinToString(" ") { "${it.from.toString().lowercase()}${it.to.toString().lowercase()}" + (if (it.promotion != Piece.NONE) it.promotion.fenSymbol.lowercase() else "") }
                         }
                     } catch (_: Exception) {}
                     engineThinking = false
@@ -221,6 +231,7 @@ class Game {
             }
         })
     }
+
 
     private fun uciToLegalMove(uci: String): Move? {
         if (uci.length < 4) return null

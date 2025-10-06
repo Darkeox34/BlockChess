@@ -44,11 +44,71 @@ class UciEngine(private val executablePath: String) {
         }
     }
 
+    fun initLevel(enemyIndex: Int?) {
+        send("uci")
+        waitFor("uciok", 5000)
+
+        send("setoption name UCI_LimitStrength value false")
+
+        when (enemyIndex) {
+            1 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 200")
+            }
+            2 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 500")
+            }
+            3 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 820")
+            }
+            4 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 1060")
+            }
+            5 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 1350")
+            }
+            6 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 1600")
+            }
+            7 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 1900")
+            }
+            8 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 2200")
+            }
+            9 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 2500")
+            }
+            10 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 2800")
+            }
+            11 -> {
+                send("setoption name UCI_LimitStrength value true")
+                send("setoption name UCI_Elo value 3050")
+            }
+            12 -> {
+                send("setoption name UCI_LimitStrength value false")
+            }
+        }
+
+        send("isready")
+        waitFor("readyok", 5000)
+        send("ucinewgame")
+    }
+
     fun init(skillLevel: Int?) {
         send("uci")
         waitFor("uciok", 5000)
         if (skillLevel != null) {
-            send("setoption name Skill_Level value ${skillLevel}")
             send("setoption name Skill_Level value ${skillLevel}")
         }
         send("isready")

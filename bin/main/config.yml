@@ -1,4 +1,4 @@
 resourcepack:
   enabled: true
 engine:
-  path: patricia_v3.exe
+  path: plugins/BlockChess/stockfish.exe
