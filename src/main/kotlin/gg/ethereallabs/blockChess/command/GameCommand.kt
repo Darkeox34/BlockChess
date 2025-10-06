@@ -39,12 +39,12 @@ class GameCommand : CommandExecutor {
             }
             "bot" -> {
                 if (args.size < 2) {
-                    sender.sendMessage(BlockChess.mm.deserialize("<red>Choose a difficulty: /chess bot <1-20>"))
+                    sender.sendMessage(BlockChess.mm.deserialize("<red>Choose a difficulty: /chess bot <1-12>"))
                     return true
                 }
                 val diff = args[1].toIntOrNull()
-                if (diff == null || diff !in 1..20) {
-                    sender.sendMessage(BlockChess.mm.deserialize("<red>Not a valid difficulty. Use a number between 1-20."))
+                if (diff == null || diff !in 1..12) {
+                    sender.sendMessage(BlockChess.mm.deserialize("<red>Not a valid difficulty. Use a number between 1-12."))
                     return true
                 }
                 GameManager.startBot(sender, diff)

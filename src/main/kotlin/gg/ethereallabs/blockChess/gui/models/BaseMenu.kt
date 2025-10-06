@@ -18,7 +18,7 @@ import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import java.util.*
 
-abstract class BaseMenu(private val title: Component, private val size: Int) : Listener {
+abstract class BaseMenu(private val title: Component, val size: Int) : Listener {
     protected var inv: Inventory? = null
     private val viewers: MutableSet<UUID?> = HashSet<UUID?>()
 
