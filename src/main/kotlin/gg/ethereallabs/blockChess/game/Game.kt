@@ -1,16 +1,16 @@
 package gg.ethereallabs.blockChess.game
 
 import com.github.bhlangonijr.chesslib.Board
-import com.github.bhlangonijr.chesslib.Side
-import gg.ethereallabs.blockChess.BlockChess
-import gg.ethereallabs.blockChess.gui.GameGUI
-import gg.ethereallabs.blockChess.engine.UciEngine
-import com.github.bhlangonijr.chesslib.Piece
-import gg.ethereallabs.blockChess.events.ChessListener
 import com.github.bhlangonijr.chesslib.BoardEventType
+import com.github.bhlangonijr.chesslib.Piece
+import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.move.Move
 import com.github.bhlangonijr.chesslib.move.MoveList
+import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.config.Config
+import gg.ethereallabs.blockChess.engine.UciEngine
+import gg.ethereallabs.blockChess.events.ChessListener
+import gg.ethereallabs.blockChess.gui.GameGUI
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -27,6 +27,9 @@ class Game {
     var black: Player? = null
 
     var moveList: MoveList = MoveList()
+
+    var ended = false
+        private set
 
     private var taskId: Int = -1
     var whiteTimeMs: Long = 5 * 60 * 1000
@@ -92,7 +95,7 @@ class Game {
 
     fun end(){
         val fen = moveList.toString()
-
+        ended = true
         if(fen != null) {
             val message = Component.text("PGN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
                 .append(
@@ -133,14 +136,14 @@ class Game {
             if (whiteTimeMs <= 0 || blackTimeMs <= 0) {
                 val loser = if (whiteTimeMs <= 0) white else black
                 val reason = if (loser === white)
-                    BlockChess.mm.deserialize("<red>Out of time: Black Won.")
+                    BlockChess.mm.deserialize("<red>⏰ Time’s up!</red> <gray>Black wins the match.</gray>")
                 else
-                    BlockChess.mm.deserialize("<red>Out of time: White Won.")
+                    BlockChess.mm.deserialize("<red>⏰ Time’s up!</red> <gray>White wins the match.</gray>")
                 end()
             } else {
                 // Refresh clock display for both
-                guiWhite?.draw(white)
-                guiBlack?.draw(black)
+                guiWhite?.updateClock()
+                guiBlack?.updateClock()
                 // If playing vs bot and it's engine's turn, ensure it thinks
                 if (againstBot && board.sideToMove == engineSide && !engineThinking) {
                     triggerEngineMove()
@@ -156,29 +159,43 @@ class Game {
         moveList.add(move)
 
         if(white != null)
-            white?.playSound(white!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
+            white?.playSound(white!!.location, Sound.BLOCK_NETHER_WOOD_BREAK, 1f, 1f)
         if(black != null)
-            black?.playSound(black!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
+            black?.playSound(black!!.location, Sound.BLOCK_NETHER_WOOD_BREAK, 1f, 1f)
 
-        if(board.isStaleMate()){
-            white?.sendMessage("The match has ended: Stale!")
-            black?.sendMessage("The match has ended: Stale!")
+        if (board.isStaleMate()) {
+            BlockChess.instance.sendMessage(white, "<yellow>⚖️ The match has ended in a <bold>stalemate</bold>!</yellow>")
+            BlockChess.instance.sendMessage(black, "<yellow>⚖️ The match has ended in a <bold>stalemate</bold>!</yellow>")
+            end()
         }
 
-        if(board.isMated()){
+        if (board.isMated()) {
             if (board.sideToMove == Side.WHITE) {
-                white?.sendMessage("Checkmate. Black won")
-                black?.sendMessage("Checkmate. You won")
+                BlockChess.instance.sendMessage(white, "<red>♚ Checkmate!</red> <gray>Black wins the match.</gray>")
+                BlockChess.instance.sendMessage(black, "<green>♛ Checkmate!</green> <gray>You have defeated your opponent.</gray>")
             } else {
-                white?.sendMessage("Checkmate. You won")
-                black?.sendMessage("Checkmate. White won")
+                BlockChess.instance.sendMessage(white, "<green>♛ Checkmate!</green> <gray>You have defeated your opponent.</gray>")
+                BlockChess.instance.sendMessage(black, "<red>♚ Checkmate!</red> <gray>White wins the match.</gray>")
             }
             end()
         }
 
-        if(board.isDraw){
-            white?.sendMessage("The match has ended: Draw!")
-            black?.sendMessage("The match has ended: Draw!")
+
+        if (board.isRepetition) {
+            BlockChess.instance.sendMessage(white, "<yellow>🔁 The match has ended in a <bold>draw by repetition</bold>.</yellow>")
+            BlockChess.instance.sendMessage(black, "<yellow>🔁 The match has ended in a <bold>draw by repetition</bold>.</yellow>")
+            end()
+        }
+
+        if (board.isInsufficientMaterial()) {
+            BlockChess.instance.sendMessage(white, "<yellow>🪶 The match ended in a <bold>draw</bold> due to insufficient material.</yellow>")
+            BlockChess.instance.sendMessage(black, "<yellow>🪶 The match ended in a <bold>draw</bold> due to insufficient material.</yellow>")
+            end()
+        }
+
+        if (board.halfMoveCounter >= 100) {
+            BlockChess.instance.sendMessage(white, "<yellow>⏳ The match ended in a <bold>draw</bold> after 100 moves without progress.</yellow>")
+            BlockChess.instance.sendMessage(black, "<yellow>⏳ The match ended in a <bold>draw</bold> after 100 moves without progress.</yellow>")
             end()
         }
     }
@@ -186,11 +203,14 @@ class Game {
     private fun triggerEngineMove() {
         if (!againstBot || engine == null || engineThinking) return
         engineThinking = true
-        val fen = try { board.getFen() } catch (_: Exception) { board.getFen() }
+        val fen = try { board.fen
+        } catch (_: Exception) { board.fen
+        }
         val wtime = whiteTimeMs
         val btime = blackTimeMs
         val human = if (engineSide == Side.WHITE) black else white
-        human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish is thinking…</gray>"))
+        if(human != null)
+            BlockChess.instance.sendMessage(human,"<yellow>Stockfish <gray>is thinking...")
 
         Bukkit.getScheduler().runTaskAsynchronously(BlockChess.instance, Runnable {
             try {
@@ -210,12 +230,11 @@ class Game {
                     }
                 } catch (_: Exception) {
                     val alloc = ((if (board.sideToMove == Side.WHITE) wtime else btime) / 20).coerceIn(100, 2000)
-                    engine!!.goBestMoveMovetime(alloc.toLong())
+                    engine!!.goBestMoveMovetime(alloc)
                 }
+                if(human != null)
+                    BlockChess.instance.sendMessage(human,"<gray>Stockfish choose: <yellow>${best}</yellow></gray>")
 
-                human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish choose: <yellow>${best}</yellow></gray>"))
-
-                // Applica la mossa sul main thread
                 Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
                     try {
                         val mv = uciToLegalMove(best)
