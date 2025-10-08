@@ -109,11 +109,11 @@ object EloManager {
         val playerData = players[player.uniqueId] ?: return "<gray>${player.name}"
 
         return when {
-            playerData.rating > 2600 -> "<#7d1515><bold>SGM</bold> ${player.name}"
-            playerData.rating > 2500 -> "<red><bold>GM</bold> ${player.name}"
-            playerData.rating > 2400 -> "<gold><bold>IM</bold> ${player.name}"
-            playerData.rating > 2200 -> "<green><bold>NM</bold> ${player.name}"
-            playerData.rating > 2000 -> "<blue><bold>EXPERT</bold> ${player.name}"
+            playerData.rating >= 2600 -> "<#7d1515><bold>SGM</bold> ${player.name}"
+            playerData.rating >= 2500 -> "<red><bold>GM</bold> ${player.name}"
+            playerData.rating >= 2400 -> "<gold><bold>IM</bold> ${player.name}"
+            playerData.rating >= 2200 -> "<green><bold>NM</bold> ${player.name}"
+            playerData.rating >= 2000 -> "<blue><bold>EXPERT</bold> ${player.name}"
             else -> "<gray>${player.name}"
         }
     }

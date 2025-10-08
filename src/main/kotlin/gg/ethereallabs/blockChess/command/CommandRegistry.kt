@@ -4,7 +4,9 @@ package gg.ethereallabs.blockChess.command
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.command.abstract.BaseCommand
 import gg.ethereallabs.blockChess.command.abstract.CommandHandler
+import gg.ethereallabs.blockChess.command.subcommands.AdminCommands
 import gg.ethereallabs.blockChess.command.subcommands.BotCommand
+import gg.ethereallabs.blockChess.command.subcommands.InfoCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteAcceptCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteDeclineCommand
@@ -26,6 +28,8 @@ class CommandRegistry : CommandExecutor, TabCompleter {
         registerCommand(InviteAcceptCommand())
         registerCommand(InviteCommand())
         registerCommand(InviteDeclineCommand())
+        registerCommand(InfoCommand())
+        registerCommand(AdminCommands())
     }
 
     private fun registerCommand(handler: BaseCommand) {
