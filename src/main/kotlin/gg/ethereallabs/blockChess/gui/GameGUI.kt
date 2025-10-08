@@ -3,6 +3,7 @@ package gg.ethereallabs.blockChess.gui
 import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.Square
+import com.github.bhlangonijr.chesslib.game.GameResult
 import gg.ethereallabs.blockChess.BlockChess
 import com.github.bhlangonijr.chesslib.move.Move
 import gg.ethereallabs.blockChess.config.Config
@@ -245,7 +246,7 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
 
         when(slot) {
             53 -> { // Surrender
-                game.end()
+                game.finalizeGame(if(playerIsWhite) Game.ResultType.WHITE_RESIGN else Game.ResultType.BLACK_RESIGN)
                 return
             }
             44 -> { // Draw
@@ -300,12 +301,15 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
                 }
                 val oldPiece = game.board.getPiece(targetMove.to)
                 val movingPiece = game.board.getPiece(targetMove.from)
+
                 board.doMove(targetMove)
                 if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
                     if (movingPiece.pieceSide == Side.WHITE && playerIsWhite && p != null) {
+                        BlockChess.instance.logger.info("${oldPiece.name} was captured by ${movingPiece.name}")
                         giveCapturedPiece(p, oldPiece)
                     }
                     else if (movingPiece.pieceSide == Side.BLACK && !playerIsWhite && p != null) {
+                        BlockChess.instance.logger.info("${oldPiece.name} was captured by ${movingPiece.name}")
                         giveCapturedPiece(p, oldPiece)
                     }
                 }

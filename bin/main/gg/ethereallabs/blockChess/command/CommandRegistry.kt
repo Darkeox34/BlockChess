@@ -5,6 +5,7 @@ import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.command.abstract.BaseCommand
 import gg.ethereallabs.blockChess.command.abstract.CommandHandler
 import gg.ethereallabs.blockChess.command.subcommands.BotCommand
+import gg.ethereallabs.blockChess.command.subcommands.EndCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteAcceptCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteDeclineCommand
@@ -23,6 +24,7 @@ class CommandRegistry : CommandExecutor, TabCompleter {
 
     init {
         registerCommand(BotCommand())
+        registerCommand(EndCommand())
         registerCommand(InviteAcceptCommand())
         registerCommand(InviteCommand())
         registerCommand(InviteDeclineCommand())
@@ -43,7 +45,7 @@ class CommandRegistry : CommandExecutor, TabCompleter {
                 gui.open(sender)
             }
             else{
-                BlockChess.instance.sendMessage("<red>This command can be only executed by players!", sender)
+                BlockChess.instance.sendMessage(sender,"<red>This command can be only executed by players!")
             }
             return true
         }
@@ -52,7 +54,7 @@ class CommandRegistry : CommandExecutor, TabCompleter {
         val handler = commands[subCommand]
 
         return handler?.execute(sender, args.copyOfRange(1, args.size)) ?: run {
-            BlockChess.instance.sendMessage("<red>Unknown command! Write /chess help to have a list of all commands.", sender)
+            BlockChess.instance.sendMessage(sender,"<red>Unknown command! Write /chess help to have a list of all commands.")
             true
         }
     }

@@ -1,16 +1,19 @@
 package gg.ethereallabs.blockChess.game
 
 import com.github.bhlangonijr.chesslib.Board
-import com.github.bhlangonijr.chesslib.Side
-import gg.ethereallabs.blockChess.BlockChess
-import gg.ethereallabs.blockChess.gui.GameGUI
-import gg.ethereallabs.blockChess.engine.UciEngine
-import com.github.bhlangonijr.chesslib.Piece
-import gg.ethereallabs.blockChess.events.ChessListener
 import com.github.bhlangonijr.chesslib.BoardEventType
+import com.github.bhlangonijr.chesslib.Piece
+import com.github.bhlangonijr.chesslib.Side
 import com.github.bhlangonijr.chesslib.move.Move
 import com.github.bhlangonijr.chesslib.move.MoveList
+import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.config.Config
+import gg.ethereallabs.blockChess.engine.UciEngine
+import gg.ethereallabs.blockChess.events.ChessListener
+import gg.ethereallabs.blockChess.gui.GameGUI
+import gg.ethereallabs.blockChess.elo.EloManager
+import gg.ethereallabs.blockChess.elo.PlayerData
+import gg.ethereallabs.blockChess.data.LocalStorage
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -28,6 +31,9 @@ class Game {
 
     var moveList: MoveList = MoveList()
 
+    var ended = false
+        private set
+
     private var taskId: Int = -1
     var whiteTimeMs: Long = 5 * 60 * 1000
     var blackTimeMs: Long = 5 * 60 * 1000
@@ -42,6 +48,18 @@ class Game {
     private var engine: UciEngine? = null
     private var engineThinking: Boolean = false
     private var engineSkill: Int? = null
+
+    private enum class ResultType {
+        WHITE_WIN,
+        BLACK_WIN,
+        DRAW_STALEMATE,
+        DRAW_REPETITION,
+        DRAW_INSUFFICIENT,
+        DRAW_100MOVES,
+        TIMEOUT_WHITE,
+        TIMEOUT_BLACK,
+        MANUAL_END
+    }
 
     fun start(pWhite: Player, pBlack: Player) {
         white = pWhite
@@ -90,20 +108,126 @@ class Game {
         }
     }
 
-    fun end(){
-        val fen = moveList.toString()
+    fun end() {
+        // Manual end: gracefully stop without Elo updates
+        finalizeGame(ResultType.MANUAL_END)
+    }
 
-        if(fen != null) {
-            val message = Component.text("PGN (Left-Click to Copy): ", TextColor.color(0xFFFFFF))
-                .append(
-                    Component.text(fen, TextColor.color(0x00FF00))
-                        .clickEvent(ClickEvent.copyToClipboard(fen))
-                        .hoverEvent(HoverEvent.showText(Component.text("Click to copy PGN")))
-                )
+    private fun finalizeGame(result: ResultType) {
+        if (ended) return
+        ended = true
 
-            white?.sendMessage(message)
-            black?.sendMessage(message)
+        // Stop timers and engine
+        stop()
+
+        // Build and send PGN (actually move list) to both players
+        val pgn = moveList.toString()
+        val pgnMsg = Component.text("PGN (Click to copy): ", TextColor.color(0xFFFFFF))
+            .append(
+                Component.text(pgn, TextColor.color(0x00FF00))
+                    .clickEvent(ClickEvent.copyToClipboard(pgn))
+                    .hoverEvent(HoverEvent.showText(Component.text("Click to copy PGN")))
+            )
+        white?.sendMessage(pgnMsg)
+        black?.sendMessage(pgnMsg)
+
+        // Compose end messages and Elo updates (skip Elo if vs bot)
+        if (!againstBot && white != null && black != null) {
+            val w = white!!
+            val b = black!!
+            val wData = EloManager.players[w.uniqueId] ?: PlayerData().also { EloManager.players[w.uniqueId] = it }
+            val bData = EloManager.players[b.uniqueId] ?: PlayerData().also { EloManager.players[b.uniqueId] = it }
+
+            when (result) {
+                ResultType.WHITE_WIN, ResultType.TIMEOUT_BLACK -> {
+                    EloManager.updateEloWithDifference(wData, bData, 1.0)
+                    EloManager.updateEloWithDifference(bData, wData, 0.0)
+                    wData.wins += 1
+                    bData.losses += 1
+                    val winnerName = EloManager.getChessistName(w)
+                    val loserName = EloManager.getChessistName(b)
+                    w.sendMessage(BlockChess.mm.deserialize("<green>🏆 Victory!</green> You defeated ").append(loserName!!))
+                    b.sendMessage(BlockChess.mm.deserialize("<red>❌ Defeat!</red> ").append(winnerName!!).append(BlockChess.mm.deserialize(" has won the match.")))
+                }
+                ResultType.BLACK_WIN, ResultType.TIMEOUT_WHITE -> {
+                    EloManager.updateEloWithDifference(bData, wData, 1.0)
+                    EloManager.updateEloWithDifference(wData, bData, 0.0)
+                    bData.wins += 1
+                    wData.losses += 1
+                    val winnerName = EloManager.getChessistName(b)
+                    val loserName = EloManager.getChessistName(w)
+                    b.sendMessage(BlockChess.mm.deserialize("<green>🏆 Victory!</green> You defeated ").append(loserName!!))
+                    w.sendMessage(BlockChess.mm.deserialize("<red>❌ Defeat!</red> ").append(winnerName!!).append(BlockChess.mm.deserialize(" has won the match.")))
+                }
+                ResultType.DRAW_STALEMATE -> {
+                    EloManager.updateEloWithDifference(wData, bData, 0.5)
+                    EloManager.updateEloWithDifference(bData, wData, 0.5)
+                    wData.draws += 1
+                    bData.draws += 1
+                    w.sendMessage(BlockChess.mm.deserialize("<yellow>⚖️ Patta per stallo.</yellow>"))
+                    b.sendMessage(BlockChess.mm.deserialize("<yellow>⚖️ Patta per stallo.</yellow>"))
+                }
+                ResultType.DRAW_REPETITION -> {
+                    EloManager.updateEloWithDifference(wData, bData, 0.5)
+                    EloManager.updateEloWithDifference(bData, wData, 0.5)
+                    wData.draws += 1
+                    bData.draws += 1
+                    w.sendMessage(BlockChess.mm.deserialize("<yellow>🔁 Patta per ripetizione.</yellow>"))
+                    b.sendMessage(BlockChess.mm.deserialize("<yellow>🔁 Patta per ripetizione.</yellow>"))
+                }
+                ResultType.DRAW_INSUFFICIENT -> {
+                    EloManager.updateEloWithDifference(wData, bData, 0.5)
+                    EloManager.updateEloWithDifference(bData, wData, 0.5)
+                    wData.draws += 1
+                    bData.draws += 1
+                    w.sendMessage(BlockChess.mm.deserialize("<yellow>🪶 Patta per materiale insufficiente.</yellow>"))
+                    b.sendMessage(BlockChess.mm.deserialize("<yellow>🪶 Patta per materiale insufficiente.</yellow>"))
+                }
+                ResultType.DRAW_100MOVES -> {
+                    EloManager.updateEloWithDifference(wData, bData, 0.5)
+                    EloManager.updateEloWithDifference(bData, wData, 0.5)
+                    wData.draws += 1
+                    bData.draws += 1
+                    w.sendMessage(BlockChess.mm.deserialize("<yellow>⏳ Patta dopo 100 mosse senza progresso.</yellow>"))
+                    b.sendMessage(BlockChess.mm.deserialize("<yellow>⏳ Patta dopo 100 mosse senza progresso.</yellow>"))
+                }
+                ResultType.MANUAL_END -> {
+                    w.sendMessage(BlockChess.mm.deserialize("<gray>Partita terminata.</gray>"))
+                    b.sendMessage(BlockChess.mm.deserialize("<gray>Partita terminata.</gray>"))
+                }
+            }
+
+            LocalStorage.savePlayerData(w)
+            LocalStorage.savePlayerData(b)
+        } else {
+            when (result) {
+                ResultType.WHITE_WIN -> black?.sendMessage(BlockChess.mm.deserialize("<gray>Il bot ha perso contro ").append(EloManager.getChessistName(white!!)!!))
+                ResultType.BLACK_WIN -> white?.sendMessage(BlockChess.mm.deserialize("<gray>Il bot ha perso contro ").append(EloManager.getChessistName(black!!)!!))
+                ResultType.TIMEOUT_WHITE -> black?.sendMessage(BlockChess.mm.deserialize("<gray>Tempo scaduto per ").append(EloManager.getChessistName(white!!)!!))
+                ResultType.TIMEOUT_BLACK -> white?.sendMessage(BlockChess.mm.deserialize("<gray>Tempo scaduto per ").append(EloManager.getChessistName(black!!)!!))
+                ResultType.DRAW_STALEMATE -> {
+                    white?.sendMessage(BlockChess.mm.deserialize("<yellow>⚖️ Patta per stallo.</yellow>"))
+                    black?.sendMessage(BlockChess.mm.deserialize("<yellow>⚖️ Patta per stallo.</yellow>"))
+                }
+                ResultType.DRAW_REPETITION -> {
+                    white?.sendMessage(BlockChess.mm.deserialize("<yellow>🔁 Patta per ripetizione.</yellow>"))
+                    black?.sendMessage(BlockChess.mm.deserialize("<yellow>🔁 Patta per ripetizione.</yellow>"))
+                }
+                ResultType.DRAW_INSUFFICIENT -> {
+                    white?.sendMessage(BlockChess.mm.deserialize("<yellow>🪶 Patta per materiale insufficiente.</yellow>"))
+                    black?.sendMessage(BlockChess.mm.deserialize("<yellow>🪶 Patta per materiale insufficiente.</yellow>"))
+                }
+                ResultType.DRAW_100MOVES -> {
+                    white?.sendMessage(BlockChess.mm.deserialize("<yellow>⏳ Patta dopo 100 mosse senza progresso.</yellow>"))
+                    black?.sendMessage(BlockChess.mm.deserialize("<yellow>⏳ Patta dopo 100 mosse senza progresso.</yellow>"))
+                }
+                ResultType.MANUAL_END -> {
+                    white?.sendMessage(BlockChess.mm.deserialize("<gray>Partita terminata.</gray>"))
+                    black?.sendMessage(BlockChess.mm.deserialize("<gray>Partita terminata.</gray>"))
+                }
+            }
         }
+
         GameManager.end(this)
     }
 
@@ -131,16 +255,12 @@ class Game {
             }
 
             if (whiteTimeMs <= 0 || blackTimeMs <= 0) {
-                val loser = if (whiteTimeMs <= 0) white else black
-                val reason = if (loser === white)
-                    BlockChess.mm.deserialize("<red>Out of time: Black Won.")
-                else
-                    BlockChess.mm.deserialize("<red>Out of time: White Won.")
-                end()
+                val outcome = if (whiteTimeMs <= 0) ResultType.TIMEOUT_WHITE else ResultType.TIMEOUT_BLACK
+                finalizeGame(outcome)
             } else {
                 // Refresh clock display for both
-                guiWhite?.draw(white)
-                guiBlack?.draw(black)
+                guiWhite?.updateClock()
+                guiBlack?.updateClock()
                 // If playing vs bot and it's engine's turn, ensure it thinks
                 if (againstBot && board.sideToMove == engineSide && !engineThinking) {
                     triggerEngineMove()
@@ -156,41 +276,49 @@ class Game {
         moveList.add(move)
 
         if(white != null)
-            white?.playSound(white!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
+            white?.playSound(white!!.location, Sound.BLOCK_NETHER_WOOD_BREAK, 1f, 1f)
         if(black != null)
-            black?.playSound(black!!.location, Sound.BLOCK_LEVER_CLICK, 1f, 1f)
+            black?.playSound(black!!.location, Sound.BLOCK_NETHER_WOOD_BREAK, 1f, 1f)
 
-        if(board.isStaleMate()){
-            white?.sendMessage("The match has ended: Stale!")
-            black?.sendMessage("The match has ended: Stale!")
+        if (board.isStaleMate()) {
+            finalizeGame(ResultType.DRAW_STALEMATE)
+            return
         }
 
-        if(board.isMated()){
-            if (board.sideToMove == Side.WHITE) {
-                white?.sendMessage("Checkmate. Black won")
-                black?.sendMessage("Checkmate. You won")
-            } else {
-                white?.sendMessage("Checkmate. You won")
-                black?.sendMessage("Checkmate. White won")
-            }
-            end()
+        if (board.isMated()) {
+            val outcome = if (board.sideToMove == Side.WHITE) ResultType.BLACK_WIN else ResultType.WHITE_WIN
+            finalizeGame(outcome)
+            return
         }
 
-        if(board.isDraw){
-            white?.sendMessage("The match has ended: Draw!")
-            black?.sendMessage("The match has ended: Draw!")
-            end()
+
+        if (board.isRepetition) {
+            finalizeGame(ResultType.DRAW_REPETITION)
+            return
+        }
+
+        if (board.isInsufficientMaterial()) {
+            finalizeGame(ResultType.DRAW_INSUFFICIENT)
+            return
+        }
+
+        if (board.halfMoveCounter >= 100) {
+            finalizeGame(ResultType.DRAW_100MOVES)
+            return
         }
     }
 
     private fun triggerEngineMove() {
         if (!againstBot || engine == null || engineThinking) return
         engineThinking = true
-        val fen = try { board.getFen() } catch (_: Exception) { board.getFen() }
+        val fen = try { board.fen
+        } catch (_: Exception) { board.fen
+        }
         val wtime = whiteTimeMs
         val btime = blackTimeMs
         val human = if (engineSide == Side.WHITE) black else white
-        human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish is thinking…</gray>"))
+        if(human != null)
+            BlockChess.instance.sendMessage(human,"<yellow>Stockfish <gray>is thinking...")
 
         Bukkit.getScheduler().runTaskAsynchronously(BlockChess.instance, Runnable {
             try {
@@ -210,12 +338,11 @@ class Game {
                     }
                 } catch (_: Exception) {
                     val alloc = ((if (board.sideToMove == Side.WHITE) wtime else btime) / 20).coerceIn(100, 2000)
-                    engine!!.goBestMoveMovetime(alloc.toLong())
+                    engine!!.goBestMoveMovetime(alloc)
                 }
+                if(human != null)
+                    BlockChess.instance.sendMessage(human,"<gray>Stockfish choose: <yellow>${best}</yellow></gray>")
 
-                human?.sendMessage(BlockChess.mm.deserialize("<gray>Stockfish choose: <yellow>${best}</yellow></gray>"))
-
-                // Applica la mossa sul main thread
                 Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
                     try {
                         val mv = uciToLegalMove(best)

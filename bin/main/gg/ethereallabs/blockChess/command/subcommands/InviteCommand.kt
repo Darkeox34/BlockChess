@@ -6,28 +6,27 @@ import gg.ethereallabs.blockChess.game.GameManager
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 
-class BotCommand : BaseCommand("bot") {
+class InviteCommand : BaseCommand("invite") {
     override fun execute(
         sender: CommandSender,
         args: Array<out String>
     ): Boolean {
         if (args.isEmpty()) {
-            BlockChess.instance.sendMessage("<red>Choose a difficulty: /chess bot <1-12>", sender)
-            return true
-        }
-
-        val diff = args[0].toIntOrNull()
-        if (diff == null || diff !in 1..12) {
-            BlockChess.instance.sendMessage("<red>Not a valid difficulty. Use a number between 1-12.", sender)
+            BlockChess.instance.sendMessage(sender,"<red>Specify a player: /chess invite <player>")
             return true
         }
 
         if(sender !is Player) {
-            BlockChess.instance.sendMessage( "<red>This command can only be executed by players!", sender)
+            BlockChess.instance.sendMessage(sender, "<red>This command can only be executed by players!")
             return true
         }
 
-        GameManager.startBot(sender, diff)
+        val target = sender.server.getPlayerExact(args[0])
+        if (target == null) {
+            BlockChess.instance.sendMessage(sender,"<red>This player is not online: ${args[0]}")
+            return true
+        }
+        GameManager.invite(sender, target)
         return true
     }
 }

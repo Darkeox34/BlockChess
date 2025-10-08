@@ -1,6 +1,7 @@
 package gg.ethereallabs.blockChess.game
 
 import gg.ethereallabs.blockChess.BlockChess
+import gg.ethereallabs.blockChess.elo.EloManager
 import gg.ethereallabs.blockChess.gui.GameGUI
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
@@ -17,29 +18,32 @@ object GameManager {
 
     fun invite(inviter: Player, invitee: Player) {
         if (inviter.uniqueId == invitee.uniqueId) {
-            inviter.sendMessage(BlockChess.mm.deserialize("<red>You can't invite yourself."))
+            BlockChess.instance.sendMessage("<red>You can't invite yourself.", inviter)
             return
         }
 
         if (activeGamesByPlayer.containsKey(inviter.uniqueId) || activeGamesByPlayer.containsKey(invitee.uniqueId)) {
-            inviter.sendMessage(BlockChess.mm.deserialize("<red>You or the invited player are already playing a match."))
+            BlockChess.instance.sendMessage("<red>You or the invited player are already playing a match.", inviter)
             return
         }
 
         val inv = Invitation(inviter.uniqueId, invitee.uniqueId)
         pendingInvites[invitee.uniqueId] = inv
 
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Invite sent to <yellow>${invitee.name}</yellow>."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<yellow>${inviter.name}</yellow> invited you to play chess (5+0)."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Use <aqua>/chess accept ${inviter.name}</aqua> to accept, <red>/chess decline ${inviter.name}</red> to decline."))
+        val inviterName = EloManager.getChessistName(inviter)
+        val inviteeName = EloManager.getChessistName(invitee)
+
+        BlockChess.instance.sendMessage("<yellow>Invite sent to $inviteeName.", inviter)
+        BlockChess.instance.sendMessage("<yellow>$inviterName</yellow> invited you to play chess (5+0).", invitee)
+        BlockChess.instance.sendMessage("<gray>Use <yellow>/chess accept $inviterName</yellow> to accept, <red>/chess decline ${inviter.name}</red> to decline.", invitee)
 
         // Auto-expire
         Bukkit.getScheduler().runTaskLater(BlockChess.instance, Runnable {
             val current = pendingInvites[invitee.uniqueId]
             if (current != null && current.inviter == inviter.uniqueId) {
                 pendingInvites.remove(invitee.uniqueId)
-                inviter.sendMessage(BlockChess.mm.deserialize("<gray>The invite to <yellow>${invitee.name}</yellow> has expired."))
-                invitee.sendMessage(BlockChess.mm.deserialize("<gray>The invite to <yellow>${inviter.name}</yellow> has expired."))
+                BlockChess.instance.sendMessage("<yellow>The invite to $inviteeName <yellow>has expired.", inviter)
+                BlockChess.instance.sendMessage("<yellow>The invite from $inviterName <yellow>has expired.", invitee)
             }
         }, 20L * 60)
     }
@@ -50,9 +54,12 @@ object GameManager {
             return false
         }
 
+        val inviterName = EloManager.getChessistName(inviter)
+        val inviteeName = EloManager.getChessistName(invitee)
+
         val inv = pendingInvites[invitee.uniqueId]
         if (inv == null || inv.inviter != inviter.uniqueId) {
-            invitee.sendMessage(BlockChess.mm.deserialize("<red>No valid invites from ${inviter.name}."))
+            BlockChess.instance.sendMessage("<red>No valid invites from $inviterName.", invitee)
             return false
         }
 
@@ -64,8 +71,8 @@ object GameManager {
         activeGamesByPlayer[inviter.uniqueId] = game
         activeGamesByPlayer[invitee.uniqueId] = game
 
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>Match started against <yellow>${invitee.name}</yellow>. White: <white>${inviter.name}</white>"))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>Match started against <yellow>${inviter.name}</yellow>. Black: <dark_gray>${invitee.name}</dark_gray>"))
+        BlockChess.instance.sendMessage("<yellow>Match started against <yellow>$inviteeName</yellow>. White: <white>$inviterName</white>", inviter)
+        BlockChess.instance.sendMessage("<yellow>Match started against <yellow>$inviterName</yellow>. Black: <dark_gray>$inviteeName</dark_gray>", invitee)
         return true
     }
 
@@ -74,8 +81,12 @@ object GameManager {
         val inv = pendingInvites[invitee.uniqueId]
         if (inv == null || inv.inviter != inviter.uniqueId) return false
         pendingInvites.remove(invitee.uniqueId)
-        inviter.sendMessage(BlockChess.mm.deserialize("<gray>${invitee.name} has declined your invite."))
-        invitee.sendMessage(BlockChess.mm.deserialize("<gray>You have declines ${inviter.name}'s invite."))
+
+        val inviterName = EloManager.getChessistName(inviter)
+        val inviteeName = EloManager.getChessistName(invitee)
+
+        BlockChess.instance.sendMessage("$inviteeName <yellow>has declined your invite.", inviter)
+        BlockChess.instance.sendMessage("<yellow>You have declined $inviterName's invite.", invitee)
         return true
     }
 

@@ -163,6 +163,11 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         }
     }
 
+    fun updateClock() {
+        val clock = getClockItem()
+        inv?.setItem(26, clock)
+    }
+
     override fun draw(p: Player?) {
         inv?.clear()
         p?.inventory?.clear()
@@ -233,6 +238,11 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
     }
 
     override fun handleClick(p: Player?, slot: Int, e: InventoryClickEvent?) {
+        if (game.ended) {
+            e?.isCancelled = true
+            return
+        }
+
         when(slot) {
             53 -> { // Surrender
                 game.end()
@@ -286,7 +296,7 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         if (targetMove != null) {
             try {
                 if(targetMove.promotion != Piece.NONE) {
-                    BlockChess.instance.logger.info("${p?.name} ha promosso a ${targetMove.promotion}")
+                    BlockChess.instance.logger.info("${p?.name} promoted to ${targetMove.promotion}")
                 }
                 val oldPiece = game.board.getPiece(targetMove.to)
                 val movingPiece = game.board.getPiece(targetMove.from)

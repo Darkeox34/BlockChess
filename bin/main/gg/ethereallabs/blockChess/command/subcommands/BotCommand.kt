@@ -12,18 +12,18 @@ class BotCommand : BaseCommand("bot") {
         args: Array<out String>
     ): Boolean {
         if (args.isEmpty()) {
-            BlockChess.instance.sendMessage("<red>Choose a difficulty: /chess bot <1-12>", sender)
+            BlockChess.instance.sendMessage(sender,"<red>Choose a difficulty: /chess bot <1-12>")
             return true
         }
 
         val diff = args[0].toIntOrNull()
         if (diff == null || diff !in 1..12) {
-            BlockChess.instance.sendMessage("<red>Not a valid difficulty. Use a number between 1-12.", sender)
+            BlockChess.instance.sendMessage(sender,"<red>Not a valid difficulty. Use a number between 1-12.")
             return true
         }
 
         if(sender !is Player) {
-            BlockChess.instance.sendMessage( "<red>This command can only be executed by players!", sender)
+            BlockChess.instance.sendMessage(sender, "<red>This command can only be executed by players!")
             return true
         }
 

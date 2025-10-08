@@ -1,10 +1,12 @@
 package gg.ethereallabs.blockChess.config
 
 import gg.ethereallabs.blockChess.BlockChess
+import org.bukkit.entity.Player
 
 object Config {
     var resourcepack = true
     var enginePath : String = ""
+
     fun load(plugin: BlockChess) {
         val cfg = plugin.config
         resourcepack = cfg.getBoolean("resourcepack.enabled", true)

@@ -1,9 +1,10 @@
 package gg.ethereallabs.blockChess
 
-import gg.ethereallabs.blockChess.command.GameCommand
+import gg.ethereallabs.blockChess.command.CommandRegistry
 import gg.ethereallabs.blockChess.config.Config
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Material
+import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
 
 class BlockChess : JavaPlugin() {
@@ -48,10 +49,15 @@ class BlockChess : JavaPlugin() {
         Config.load(this)
         whitePiecesByChar = whitePieces.entries.associate { (k, v) -> v to k }
         blackPiecesByChar = blackPieces.entries.associate { (k, v) -> v to k }
-        getCommand("chess")?.setExecutor(GameCommand())
+        getCommand("chess")?.setExecutor(CommandRegistry())
+        getCommand("chess")?.tabCompleter = CommandRegistry()
     }
 
     override fun onDisable() {
 
+    }
+
+    fun sendMessage(sender: CommandSender?, message: String) {
+        sender?.sendMessage(mm.deserialize(message))
     }
 }
