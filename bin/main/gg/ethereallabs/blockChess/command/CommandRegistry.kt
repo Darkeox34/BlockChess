@@ -4,8 +4,9 @@ package gg.ethereallabs.blockChess.command
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.command.abstract.BaseCommand
 import gg.ethereallabs.blockChess.command.abstract.CommandHandler
+import gg.ethereallabs.blockChess.command.subcommands.AdminCommands
 import gg.ethereallabs.blockChess.command.subcommands.BotCommand
-import gg.ethereallabs.blockChess.command.subcommands.EndCommand
+import gg.ethereallabs.blockChess.command.subcommands.InfoCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteAcceptCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteCommand
 import gg.ethereallabs.blockChess.command.subcommands.InviteDeclineCommand
@@ -24,10 +25,11 @@ class CommandRegistry : CommandExecutor, TabCompleter {
 
     init {
         registerCommand(BotCommand())
-        registerCommand(EndCommand())
         registerCommand(InviteAcceptCommand())
         registerCommand(InviteCommand())
         registerCommand(InviteDeclineCommand())
+        registerCommand(InfoCommand())
+        registerCommand(AdminCommands())
     }
 
     private fun registerCommand(handler: BaseCommand) {
@@ -45,7 +47,7 @@ class CommandRegistry : CommandExecutor, TabCompleter {
                 gui.open(sender)
             }
             else{
-                BlockChess.instance.sendMessage(sender,"<red>This command can be only executed by players!")
+                BlockChess.instance.sendMessage("<red>This command can be only executed by players!", sender)
             }
             return true
         }
@@ -54,7 +56,7 @@ class CommandRegistry : CommandExecutor, TabCompleter {
         val handler = commands[subCommand]
 
         return handler?.execute(sender, args.copyOfRange(1, args.size)) ?: run {
-            BlockChess.instance.sendMessage(sender,"<red>Unknown command! Write /chess help to have a list of all commands.")
+            BlockChess.instance.sendMessage("<red>Unknown command! Write /chess help to have a list of all commands.", sender)
             true
         }
     }

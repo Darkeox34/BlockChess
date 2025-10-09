@@ -1,11 +1,10 @@
-package gg.ethereallabs.blockChess.gui
+package gg.ethereallabs.blockChess.gui.subgui
 
 import com.github.bhlangonijr.chesslib.Piece
-import com.github.bhlangonijr.chesslib.Side
 import gg.ethereallabs.blockChess.BlockChess
-import gg.ethereallabs.blockChess.game.Game
+import gg.ethereallabs.blockChess.game.GameManager
+import gg.ethereallabs.blockChess.gui.GameGUI
 import gg.ethereallabs.blockChess.gui.models.BaseMenu
-import io.papermc.paper.command.brigadier.argument.ArgumentTypes.player
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -13,7 +12,13 @@ import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 
 class PromotionGUI(val gameGUI : GameGUI,
+                   val player: Player,
                    val onPieceChosen: (chosenPiece: Piece) -> Unit) : BaseMenu("Promotion", 27) {
+
+    init {
+        GameManager.playersPromoting.put(player.uniqueId, this)
+    }
+
     override fun draw(p: Player?) {
         val pieceToSlot = hashMapOf(
             "q" to 10,

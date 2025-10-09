@@ -1,11 +1,13 @@
 package gg.ethereallabs.blockChess.engine
 
+import gg.ethereallabs.blockChess.utils.SyncHelper.runSync
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.LinkedBlockingQueue
 import org.bukkit.Bukkit
+import java.util.concurrent.CompletableFuture.runAsync
 
 class UciEngine(private val executablePath: String) {
     private var process: Process? = null
@@ -120,14 +122,20 @@ class UciEngine(private val executablePath: String) {
         send("position fen $fen")
     }
 
-    fun goBestMoveWTimeBTime(wtimeMs: Long, btimeMs: Long, wincMs: Long = 0, bincMs: Long = 0): String {
-        send("go wtime $wtimeMs btime $btimeMs winc $wincMs binc $bincMs")
-        return waitBestMove()
+    fun goBestMoveWTimeBTime(wtimeMs: Long, btimeMs: Long, wincMs: Long = 0, bincMs: Long = 0, callback: (String?) -> Unit) {
+        runAsync {
+            send("go wtime $wtimeMs btime $btimeMs winc $wincMs binc $bincMs")
+            val move = waitBestMove()
+            runSync { callback(move) }
+        }
     }
 
-    fun goBestMoveMovetime(movetimeMs: Long): String {
-        send("go movetime $movetimeMs")
-        return waitBestMove()
+    fun goBestMoveMovetime(movetimeMs: Long, callback: (String?) -> Unit) {
+        runAsync {
+            send("go movetime $movetimeMs")
+            val move = waitBestMove()
+            runSync { callback(move) }
+        }
     }
 
     private fun waitBestMove(timeoutMs: Long = 30000): String {

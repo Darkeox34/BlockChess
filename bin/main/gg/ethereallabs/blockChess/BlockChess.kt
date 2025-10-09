@@ -2,7 +2,9 @@ package gg.ethereallabs.blockChess
 
 import gg.ethereallabs.blockChess.command.CommandRegistry
 import gg.ethereallabs.blockChess.config.Config
+import gg.ethereallabs.blockChess.events.PlayerListener
 import net.kyori.adventure.text.minimessage.MiniMessage
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.java.JavaPlugin
@@ -49,6 +51,7 @@ class BlockChess : JavaPlugin() {
         Config.load(this)
         whitePiecesByChar = whitePieces.entries.associate { (k, v) -> v to k }
         blackPiecesByChar = blackPieces.entries.associate { (k, v) -> v to k }
+        Bukkit.getPluginManager().registerEvents(PlayerListener(), instance);
         getCommand("chess")?.setExecutor(CommandRegistry())
         getCommand("chess")?.tabCompleter = CommandRegistry()
     }
@@ -57,7 +60,9 @@ class BlockChess : JavaPlugin() {
 
     }
 
-    fun sendMessage(sender: CommandSender?, message: String) {
-        sender?.sendMessage(mm.deserialize(message))
+    fun sendMessage(message: String, vararg senders: CommandSender?) {
+        for (sender in senders) {
+            sender?.sendMessage(mm.deserialize(message))
+        }
     }
 }

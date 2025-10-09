@@ -2,8 +2,9 @@ package gg.ethereallabs.blockChess.game
 
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.elo.EloManager
-import gg.ethereallabs.blockChess.gui.GameGUI
-import net.kyori.adventure.text.Component
+import gg.ethereallabs.blockChess.gui.subgui.DrawGUI
+import gg.ethereallabs.blockChess.gui.subgui.PromotionGUI
+import gg.ethereallabs.blockChess.gui.subgui.SurrendGUI
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.*
@@ -13,6 +14,10 @@ object GameManager {
 
     private val pendingInvites: MutableMap<UUID, Invitation> = ConcurrentHashMap()
     private val activeGamesByPlayer: MutableMap<UUID, Game> = ConcurrentHashMap()
+
+    val playersPromoting: MutableMap<UUID, PromotionGUI?> = ConcurrentHashMap()
+    val playersSurrending : MutableMap<UUID, SurrendGUI?> = ConcurrentHashMap()
+    val playersDrawing : MutableMap<UUID, DrawGUI> = ConcurrentHashMap()
 
     fun getGame(p: Player): Game? = activeGamesByPlayer[p.uniqueId]
 
