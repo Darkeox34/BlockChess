@@ -75,28 +75,4 @@ abstract class BaseMenu(private val title: Component, val size: Int) : Listener 
 
         return item
     }
-
-    protected fun createItem(
-        name: Component?,
-        material: Material,
-        lore: MutableList<Component?>?,
-        qty: Int,
-        enchants: MutableMap<Enchantment?, Int?>?
-    ): ItemStack {
-        val item = ItemStack(material)
-        val meta = item.getItemMeta()
-        item.setAmount(qty)
-        if (meta != null) {
-            meta.customName(name)
-            meta.lore(lore)
-
-            if (enchants != null) {
-                enchants.forEach { (enchant: Enchantment?, level: Int?) -> meta.addEnchant(enchant!!, level!!, false) }
-            }
-
-            item.setItemMeta(meta)
-        }
-
-        return item
-    }
 }

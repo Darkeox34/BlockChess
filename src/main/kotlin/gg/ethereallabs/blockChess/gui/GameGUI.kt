@@ -9,7 +9,10 @@ import com.github.bhlangonijr.chesslib.move.Move
 import gg.ethereallabs.blockChess.config.Config
 import gg.ethereallabs.blockChess.game.Game
 import gg.ethereallabs.blockChess.gui.models.BaseMenu
+import gg.ethereallabs.blockChess.utils.SyncHelper.runSync
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.Material
@@ -131,38 +134,44 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         return drawItem
     }
 
-    fun giveCapturedPiece(player: Player, piece: Piece) {
-        val inv = player.inventory
+    fun giveCapturedPieces(player: Player?, pieces : MutableList<Piece>) {
+        val inv = player?.inventory
+        pieces.sort()
 
-        val fen = piece.fenSymbol.lowercase()
-        val material = if (piece.pieceSide == Side.WHITE)
-            BlockChess.whitePiecesByChar[fen]
-        else
-            BlockChess.blackPiecesByChar[fen]
+        val pieceToSlot = hashMapOf(
+            "p" to 0,
+            "n" to 1,
+            "b" to 2,
+            "r" to 3,
+            "q" to 4
+        )
 
-        if(material != null) {
+        for (piece in pieces.distinct()) {
+            val fen = piece.fenSymbol.lowercase()
+            val material = if (piece.pieceSide == Side.WHITE)
+                BlockChess.whitePiecesByChar[fen]
+            else
+                BlockChess.blackPiecesByChar[fen]
+
+            if (material == null) continue
+
+            val amount = pieces.count { it == piece }
+
+            val slot = pieceToSlot[fen]
+
+            if(slot == null) continue
+
             val name = BlockChess.instance.fenToName[fen] ?: "Unknown"
-            val item = createItem(
-                Component.text(name), material, mutableListOf(
-                    Component.text("Eaten").decoration(TextDecoration.ITALIC, false),
-                ), 1
-            )
+            val item = createItem(Component.text(name), material, mutableListOf(
+                Component.text("Eaten").decoration(TextDecoration.ITALIC, false)
+                    .color(NamedTextColor.RED)
+            ), amount)
 
-            for (slot in 0..8) {
-                val current = inv.getItem(slot)
-                if (current != null && current.type == item.type) {
-                    current.amount += 1
-                    inv.setItem(slot, current)
-                    return
-                }
-            }
+            val meta = item.itemMeta
+            meta.setCustomModelData(449)
 
-            for (slot in 0..8) {
-                if (inv.getItem(slot) == null) {
-                    inv.setItem(slot, item)
-                    return
-                }
-            }
+            item.setItemMeta(meta)
+            inv?.setItem(slot, item)
         }
     }
 
@@ -188,6 +197,11 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         inv?.setItem(44, draw)
 
         val board = game.board
+
+        if(playerIsWhite)
+            giveCapturedPieces(p,game.blackEaten)
+        else
+            giveCapturedPieces(p,game.whiteEaten)
 
         for (visualRank in 0..7) {
             for (visualFile in 0..7) {
@@ -304,20 +318,18 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
             runAsync {
                 try {
                     val oldPiece = game.board.getPiece(targetMove.to)
-                    val movingPiece = game.board.getPiece(targetMove.from)
                     game.board.doMove(targetMove)
-
-                    Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
+                    runSync {
                         if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
-                            if ((movingPiece.pieceSide == Side.WHITE && playerIsWhite) ||
-                                (movingPiece.pieceSide == Side.BLACK && !playerIsWhite)) {
-                                p?.let { giveCapturedPiece(it, oldPiece) }
+                            when (oldPiece.pieceSide) {
+                                Side.WHITE -> game.whiteEaten.add(oldPiece)
+                                Side.BLACK -> game.blackEaten.add(oldPiece)
                             }
                         }
                         selected = null
                         legalFromSelected = emptyList()
                         game.onMoveMade(targetMove)
-                    })
+                    }
                 } catch (_: Exception) {}
             }
             return

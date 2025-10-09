@@ -21,6 +21,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Sound
 import org.bukkit.entity.Player
 import java.util.concurrent.CompletableFuture.runAsync
+import kotlin.collections.mutableListOf
 
 class Game {
 
@@ -28,6 +29,8 @@ class Game {
     var white: Player? = null
     var black: Player? = null
     var moveList: MoveList = MoveList()
+    var whiteEaten = mutableListOf<Piece>()
+    var blackEaten = mutableListOf<Piece>()
     var ended = false
         private set
 
@@ -179,9 +182,13 @@ class Game {
         }
 
         when (result) {
-            ResultType.WHITE_WIN, ResultType.BLACK_WIN -> sendHumanGameMessage(human, true, "🏆", "You Won")
-            ResultType.TIMEOUT_WHITE, ResultType.TIMEOUT_BLACK -> sendHumanGameMessage(human, winnerIsWhite == humanIsWhite, "⏳", "by time")
-            ResultType.WHITE_RESIGN, ResultType.BLACK_RESIGN -> sendHumanGameMessage(human, winnerIsWhite == humanIsWhite, "❌", "by resignation")
+            ResultType.WHITE_WIN ->
+                sendHumanGameMessage(human, humanIsWhite, "🏆", "❌", "by Checkmate")
+            ResultType.BLACK_WIN ->
+                sendHumanGameMessage(human, humanIsWhite, "🏆", "❌","by Checkmate")
+            ResultType.TIMEOUT_WHITE-> sendHumanGameMessage(human, winnerIsWhite == humanIsWhite, "⏳", "⏳", "by time")
+            ResultType.TIMEOUT_BLACK -> sendHumanGameMessage(human, winnerIsWhite == humanIsWhite, "⏳", "⏳", "by time")
+            ResultType.WHITE_RESIGN, ResultType.BLACK_RESIGN -> sendHumanGameMessage(human, false, "❌","❌", "by resignation")
             ResultType.DRAW_STALEMATE -> sendDrawMessage(human, "⚖", "by stalemate")
             ResultType.DRAW_REPETITION -> sendDrawMessage(human, "🔁", "by repetition")
             ResultType.DRAW_INSUFFICIENT -> sendDrawMessage(human, "🪶", "by insufficient material")
@@ -189,11 +196,11 @@ class Game {
         }
     }
 
-    private fun sendHumanGameMessage(human: Player, won: Boolean, emoji: String, reason: String) {
+    private fun sendHumanGameMessage(human: Player, won: Boolean, wEmoji: String,lEmoji : String, reason: String) {
         if (won)
-            BlockChess.instance.sendMessage("<bold><#f3fa6b>$emoji</bold> You won against <#97ff82>Stockfish <gray>($reason)", human)
+            BlockChess.instance.sendMessage("<bold><#f3fa6b>$wEmoji</bold> You won against <#97ff82>Stockfish <gray>($reason)", human)
         else
-            BlockChess.instance.sendMessage("<bold><red>$emoji</bold> You lost against <#97ff82>Stockfish <gray>($reason)", human)
+            BlockChess.instance.sendMessage("<bold><red>$lEmoji</bold> You lost against <#97ff82>Stockfish <gray>($reason)", human)
     }
 
     private fun sendDrawMessage(human: Player, emoji: String, reason: String) {
