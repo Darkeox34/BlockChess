@@ -3,8 +3,10 @@ package gg.ethereallabs.blockChess.command.subcommands
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.command.abstract.BaseCommand
 import gg.ethereallabs.blockChess.game.GameManager
+import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import kotlin.text.startsWith
 
 class BotCommand : BaseCommand("bot") {
     override fun execute(
@@ -29,5 +31,12 @@ class BotCommand : BaseCommand("bot") {
 
         GameManager.startBot(sender, diff)
         return true
+    }
+
+    override fun tabComplete(sender: CommandSender, args: Array<out String>): List<String> {
+        if(args.size == 1){
+            return (1..12).map { it.toString() }
+        }
+        return emptyList()
     }
 }

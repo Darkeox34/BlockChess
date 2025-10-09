@@ -4,6 +4,7 @@ import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.command.abstract.BaseCommand
 import gg.ethereallabs.blockChess.data.LocalStorage
 import gg.ethereallabs.blockChess.elo.EloManager
+import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 
@@ -94,5 +95,34 @@ class AdminCommands : BaseCommand("admin") {
 
         BlockChess.instance.sendMessage("<yellow>You've removed <gray>$amount</gray> ELO to <gray>$target.name</gray>", sender)
         BlockChess.instance.sendMessage("<yellow>An admin has decreased your ELO of <gray>$amount</gray>", sender)
+    }
+
+    override fun tabComplete(sender: CommandSender, args: Array<out String>): List<String> {
+        if (args.isEmpty()) {
+            return listOf("elo")
+        }
+
+        when (args.size) {
+            1 -> {
+                return listOf("elo").filter { it.startsWith(args[0], ignoreCase = true) }
+            }
+            2 -> {
+                if (args[0].equals("elo", ignoreCase = true)) {
+                    return listOf("set", "add", "remove").filter { it.startsWith(args[1], ignoreCase = true) }
+                }
+            }
+            3 -> {
+                if (args[0].equals("elo", ignoreCase = true)) {
+                    val partial = args[2]
+                    return Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(partial, ignoreCase = true) }
+                }
+            }
+            4 -> {
+                if (args[0].equals("elo", ignoreCase = true)) {
+                    return listOf("<amount>")
+                }
+            }
+        }
+        return emptyList()
     }
 }
