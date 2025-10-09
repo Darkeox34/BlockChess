@@ -75,4 +75,8 @@ abstract class BaseMenu(private val title: Component, val size: Int) : Listener 
 
         return item
     }
+
+    fun getInventory(): Inventory? {
+        return inv
+    }
 }

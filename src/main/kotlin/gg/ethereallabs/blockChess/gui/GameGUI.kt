@@ -261,11 +261,11 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         }
 
         when(slot) {
-            53 -> { // Surrender
+            53 -> {
                 game.finalizeGame(if(playerIsWhite) Game.ResultType.WHITE_RESIGN else Game.ResultType.BLACK_RESIGN)
                 return
             }
-            44 -> { // Draw
+            44 -> {
 
                 return
             }
@@ -312,12 +312,39 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
             }
             return
         }
-
         val targetMove = legalFromSelected.firstOrNull { it.to == clickedSquare }
         if (targetMove != null) {
             runAsync {
                 try {
                     val oldPiece = game.board.getPiece(targetMove.to)
+
+                    if (targetMove.promotion != Piece.NONE) {
+                        runSync {
+                            p?.closeInventory()
+                            PromotionGUI(this) { chosenPiece ->
+                                runAsync {
+                                    try {
+                                        val promoMove = Move(targetMove.from, targetMove.to, chosenPiece)
+                                        game.board.doMove(promoMove)
+
+                                        runSync {
+                                            if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
+                                                when (oldPiece.pieceSide) {
+                                                    Side.WHITE -> game.whiteEaten.add(oldPiece)
+                                                    Side.BLACK -> game.blackEaten.add(oldPiece)
+                                                }
+                                            }
+                                            selected = null
+                                            legalFromSelected = emptyList()
+                                            game.onMoveMade(promoMove)
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            }.open(p!!)
+                        }
+                        return@runAsync
+                    }
+
                     game.board.doMove(targetMove)
                     runSync {
                         if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
@@ -330,6 +357,7 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
                         legalFromSelected = emptyList()
                         game.onMoveMade(targetMove)
                     }
+
                 } catch (_: Exception) {}
             }
             return

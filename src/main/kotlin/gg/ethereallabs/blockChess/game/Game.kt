@@ -368,4 +368,13 @@ class Game {
         'n' -> if (side == Side.WHITE) Piece.WHITE_KNIGHT else Piece.BLACK_KNIGHT
         else -> Piece.NONE
     }
+
+    fun getPlayerGUI(player: Player) : GameGUI?{
+        if(player == white)
+            return guiWhite
+        else if(player == black)
+            return guiBlack
+        else
+            return null
+    }
 }
