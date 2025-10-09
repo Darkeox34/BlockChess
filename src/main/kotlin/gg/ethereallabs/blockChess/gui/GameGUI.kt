@@ -11,11 +11,13 @@ import gg.ethereallabs.blockChess.game.Game
 import gg.ethereallabs.blockChess.gui.models.BaseMenu
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextDecoration
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.LeatherArmorMeta
+import java.util.concurrent.CompletableFuture.runAsync
 
 class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
     when{
@@ -173,8 +175,6 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         inv?.clear()
         p?.inventory?.clear()
 
-        val board = game.board
-
         val clock = getClockItem()
 
         inv?.setItem(26, clock)
@@ -186,6 +186,8 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         val draw = getDrawItem()
 
         inv?.setItem(44, draw)
+
+        val board = game.board
 
         for (visualRank in 0..7) {
             for (visualFile in 0..7) {
@@ -267,82 +269,87 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
             if (piece.pieceSide != sideViewing) return
             if (board.sideToMove != sideViewing) return
 
-            // Generate legal moves from this square
-            val moves = try {
-                board.legalMoves()
-            } catch (ex: Exception) {
-                emptyList()
-            }
-            legalFromSelected = moves.filter { it.from == clickedSquare }
-            selected = clickedSquare
+            runAsync {
+                val moves = try {
+                    board.legalMoves()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                val legalMoves = moves.filter { it.from == clickedSquare }
 
+                Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
+                    legalFromSelected = legalMoves
+                    selected = clickedSquare
+                    for (mv in legalFromSelected) {
+                        val target = mv.to
+                        val targetPiece = board.getPiece(target)
+                        val isCapture = (targetPiece != null && targetPiece.pieceType != null && targetPiece.pieceType.name != "NONE") ||
+                                (board.enPassantTarget == target && piece.pieceType?.name == "PAWN")
 
-            for (mv in legalFromSelected) {
-                val target = mv.to
-                val targetPiece = board.getPiece(target)
-                val isCapture = (targetPiece != null && targetPiece.pieceType != null && targetPiece.pieceType.name != "NONE") ||
-                        (board.enPassantTarget == target && piece.pieceType?.name == "PAWN")
+                        val overlayName = if (isCapture)
+                            Component.text("Capture " + (BlockChess.instance.fenToName[targetPiece.fenSymbol.lowercase()] ?: "Piece"))
+                        else Component.text("Move")
 
-                val overlayName = if (isCapture) Component.text("Capture " + (BlockChess.instance.fenToName[targetPiece.fenSymbol.lowercase()] ?: "Piece"))
-                else Component.text("Move")
-                val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.YELLOW_STAINED_GLASS_PANE
-                val overlay = createItem(overlayName, overlayMat, mutableListOf(), 1)
-                setOverlayAtSquare(p, target, overlay)
+                        val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.YELLOW_STAINED_GLASS_PANE
+                        val overlay = createItem(overlayName, overlayMat, mutableListOf(), 1)
+                        setOverlayAtSquare(p, target, overlay)
+                    }
+                })
             }
             return
         }
 
-        // If a piece is selected, check if clicked square is a legal target
         val targetMove = legalFromSelected.firstOrNull { it.to == clickedSquare }
         if (targetMove != null) {
-            try {
-                if(targetMove.promotion != Piece.NONE) {
-                    BlockChess.instance.logger.info("${p?.name} promoted to ${targetMove.promotion}")
-                }
-                val oldPiece = game.board.getPiece(targetMove.to)
-                val movingPiece = game.board.getPiece(targetMove.from)
+            runAsync {
+                try {
+                    val oldPiece = game.board.getPiece(targetMove.to)
+                    val movingPiece = game.board.getPiece(targetMove.from)
+                    game.board.doMove(targetMove)
 
-                board.doMove(targetMove)
-                if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
-                    if (movingPiece.pieceSide == Side.WHITE && playerIsWhite && p != null) {
-                        BlockChess.instance.logger.info("${oldPiece.name} was captured by ${movingPiece.name}")
-                        giveCapturedPiece(p, oldPiece)
-                    }
-                    else if (movingPiece.pieceSide == Side.BLACK && !playerIsWhite && p != null) {
-                        BlockChess.instance.logger.info("${oldPiece.name} was captured by ${movingPiece.name}")
-                        giveCapturedPiece(p, oldPiece)
-                    }
-                }
-            } catch (_: Exception) {
-                // ignore if something goes wrong
+                    Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
+                        if (oldPiece != Piece.NONE && oldPiece.pieceType != null && oldPiece.pieceType.name != "NONE") {
+                            if ((movingPiece.pieceSide == Side.WHITE && playerIsWhite) ||
+                                (movingPiece.pieceSide == Side.BLACK && !playerIsWhite)) {
+                                p?.let { giveCapturedPiece(it, oldPiece) }
+                            }
+                        }
+                        selected = null
+                        legalFromSelected = emptyList()
+                        game.onMoveMade(targetMove)
+                    })
+                } catch (_: Exception) {}
             }
-            selected = null
-            legalFromSelected = emptyList()
-            game.onMoveMade(targetMove)
             return
         }
 
         val piece = board.getPiece(clickedSquare)
         if (piece != null && piece.pieceType != null && piece.pieceType.name != "NONE" && piece.pieceSide == sideViewing) {
-
             draw(p)
-            val moves = try { board.legalMoves() } catch (_: Exception) { emptyList() }
-            legalFromSelected = moves.filter { it.from == clickedSquare }
-            selected = clickedSquare
-            for (mv in legalFromSelected) {
-                val target = mv.to
-                val targetPiece = board.getPiece(target)
-                val isCapture = (targetPiece != null && targetPiece.pieceType != null && targetPiece.pieceType.name != "NONE") ||
-                        (board.enPassantTarget == target && piece.pieceType?.name == "PAWN")
-                val overlayName = if (isCapture) Component.text("Capture " + (BlockChess.instance.fenToName[targetPiece.fenSymbol.lowercase()] ?: "Piece")) else Component.text("Move")
-                val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.YELLOW_STAINED_GLASS_PANE
-                val overlay = createItem(overlayName, overlayMat, mutableListOf(), 1)
-                setOverlayAtSquare(p, target, overlay)
+            runAsync {
+                val moves = try { board.legalMoves() } catch (_: Exception) { emptyList() }
+                val legalMoves = moves.filter { it.from == clickedSquare }
+
+                Bukkit.getScheduler().runTask(BlockChess.instance, Runnable{
+                    legalFromSelected = legalMoves
+                    selected = clickedSquare
+                    for (mv in legalFromSelected) {
+                        val target = mv.to
+                        val targetPiece = board.getPiece(target)
+                        val isCapture = (targetPiece != null && targetPiece.pieceType != null && targetPiece.pieceType.name != "NONE") ||
+                                (board.enPassantTarget == target && piece.pieceType?.name == "PAWN")
+                        val overlayName = if (isCapture)
+                            Component.text("Capture " + (BlockChess.instance.fenToName[targetPiece.fenSymbol.lowercase()] ?: "Piece"))
+                        else Component.text("Move")
+                        val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.YELLOW_STAINED_GLASS_PANE
+                        val overlay = createItem(overlayName, overlayMat, mutableListOf(), 1)
+                        setOverlayAtSquare(p, target, overlay)
+                    }
+                })
             }
             return
         }
 
-        // Otherwise, clear selection
         selected = null
         legalFromSelected = emptyList()
         draw(p)

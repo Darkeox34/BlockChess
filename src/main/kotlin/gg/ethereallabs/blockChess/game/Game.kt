@@ -11,6 +11,7 @@ import gg.ethereallabs.blockChess.elo.PlayerData
 import gg.ethereallabs.blockChess.engine.UciEngine
 import gg.ethereallabs.blockChess.events.ChessListener
 import gg.ethereallabs.blockChess.gui.GameGUI
+import gg.ethereallabs.blockChess.utils.SyncHelper.runSync
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -19,6 +20,7 @@ import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.Sound
 import org.bukkit.entity.Player
+import java.util.concurrent.CompletableFuture.runAsync
 
 class Game {
 
@@ -311,41 +313,44 @@ class Game {
         val human = if (engineSide == Side.WHITE) black else white
         human?.let { BlockChess.instance.sendMessage("<yellow>Stockfish <gray>is thinking...", it) }
 
-        Bukkit.getScheduler().runTaskAsynchronously(BlockChess.instance, Runnable {
-            try {
-                engine!!.positionFen(fen)
-                val bestMove = try {
-                    if ((engineSkill ?: 5) in 1..4) {
-                        val movetime = (engineSkill!! * 50L).coerceIn(50, 200)
-                        engine!!.goBestMoveMovetime(movetime)
-                    } else engine!!.goBestMoveWTimeBTime(wtime, btime, 0, 0)
-                } catch (_: Exception) {
-                    val alloc = ((if (board.sideToMove == Side.WHITE) wtime else btime) / 20).coerceIn(100, 2000)
-                    engine!!.goBestMoveMovetime(alloc)
-                }
+        engine!!.positionFen(fen)
 
-                human?.let { BlockChess.instance.sendMessage("<gray>Stockfish choose: <yellow>$bestMove</yellow>", it) }
-
-                Bukkit.getScheduler().runTask(BlockChess.instance, Runnable {
-                    try {
-                        uciToLegalMove(bestMove)?.let {
-                            board.doMove(it)
-                            onMoveMade(it)
-                        }
-                    } catch (_: Exception) {}
-                    engineThinking = false
-                })
-            } catch (_: Exception) {
+        val engineCallback: (String?) -> Unit = { bestMove ->
+            runSync{
+                try {
+                    uciToLegalMove(bestMove)?.let {
+                        board.doMove(it)
+                        onMoveMade(it)
+                    }
+                } catch (_: Exception) {}
                 engineThinking = false
             }
-        })
+        }
+
+        val skill = engineSkill ?: 5
+
+        runAsync {
+            try {
+                if (skill in 1..4) {
+                    val movetime = (skill * 50L).coerceIn(50, 200)
+                    engine!!.goBestMoveMovetime(movetime, engineCallback)
+                } else {
+                    engine!!.goBestMoveWTimeBTime(wtime, btime, 0, 0, engineCallback)
+                }
+            } catch (_: Exception) {
+                val alloc = ((if (board.sideToMove == Side.WHITE) wtime else btime) / 20).coerceIn(100, 2000)
+                engine!!.goBestMoveMovetime(alloc, engineCallback)
+            }
+        }
     }
 
-    private fun uciToLegalMove(uci: String): Move? {
-        if (uci.length < 4) return null
+
+    private fun uciToLegalMove(uci: String?): Move? {
+        if (uci.isNullOrBlank() || uci.length < 4) return null
         val from = Square.squareAt((uci[1] - '1') * 8 + (uci[0] - 'a'))
         val to = Square.squareAt((uci[3] - '1') * 8 + (uci[2] - 'a'))
         val promo = if (uci.length >= 5) promoPieceFromChar(uci[4], board.sideToMove) else Piece.NONE
+
         return board.legalMoves().firstOrNull { it.from == from && it.to == to && (promo == Piece.NONE || it.promotion == promo) }
     }
 

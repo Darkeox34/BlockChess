@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.elo.EloManager
 import gg.ethereallabs.blockChess.elo.PlayerData
+import gg.ethereallabs.blockChess.utils.SyncHelper.runSync
 import org.bukkit.entity.Player
 import java.io.File
 import java.io.FileReader
@@ -16,6 +17,7 @@ import java.lang.reflect.Type
 import java.util.UUID
 import java.util.logging.Level
 import java.time.Instant
+import java.util.concurrent.CompletableFuture.runAsync
 
 object LocalStorage {
     private val dataFolder: File = File(BlockChess.instance.dataFolder, "playerdata")
@@ -62,16 +64,22 @@ object LocalStorage {
         if (!playerFile.exists()) {
             createDefaultPlayerData(player)
         }
-        try {
-            FileReader(playerFile).use { reader ->
-                val type: Type = object : TypeToken<PlayerData>() {}.type
-                val playerData: PlayerData = gson.fromJson(reader, type)
-                EloManager.players[player.uniqueId] = playerData
+        runAsync {
+            try {
+                FileReader(playerFile).use { reader ->
+                    val type: Type = object : TypeToken<PlayerData>() {}.type
+                    val playerData: PlayerData = gson.fromJson(reader, type)
+                    runSync{
+                        EloManager.players[player.uniqueId] = playerData
+                    }
+                }
+            } catch (e: Exception) {
+                BlockChess.instance.logger.log(Level.SEVERE, "Error loading player data for ${player.name}", e)
+                createDefaultPlayerData(player)
+                runSync{
+                    EloManager.players[player.uniqueId] = PlayerData()
+                }
             }
-        } catch (e: Exception) {
-            BlockChess.instance.logger.log(Level.SEVERE, "Error loading player data for ${player.name}", e)
-            createDefaultPlayerData(player)
-            EloManager.players[player.uniqueId] = PlayerData()
         }
     }
     fun savePlayerData(player: Player) {
@@ -82,27 +90,30 @@ object LocalStorage {
         }
 
         val playerData = EloManager.players[player.uniqueId] ?: PlayerData()
-
-        try {
-            FileWriter(playerFile).use { writer ->
-                gson.toJson(playerData, writer)
+        runAsync {
+            try {
+                FileWriter(playerFile).use { writer ->
+                    gson.toJson(playerData, writer)
+                }
+            } catch (e: Exception) {
+                BlockChess.instance.logger.log(Level.SEVERE, "Error saving player data for ${player.name}", e)
             }
-        } catch (e: Exception) {
-            BlockChess.instance.logger.log(Level.SEVERE, "Error saving player data for ${player.name}", e)
         }
     }
 
     fun createDefaultPlayerData(player: Player) {
         val playerData = PlayerData(rating = EloManager.defaultElo, gamesPlayed = 0)
-
-        try {
-            FileWriter(getPlayerFile(player.uniqueId)).use { writer ->
-                gson.toJson(playerData, writer)
+        runAsync {
+            try {
+                FileWriter(getPlayerFile(player.uniqueId)).use { writer ->
+                    gson.toJson(playerData, writer)
+                }
+            } catch (e: Exception) {
+                BlockChess.instance.logger.log(Level.SEVERE, "Error creating default player data for ${player.name}", e)
             }
-        } catch (e: Exception) {
-            BlockChess.instance.logger.log(Level.SEVERE, "Error creating default player data for ${player.name}", e)
+            runSync {
+                EloManager.players[player.uniqueId] = playerData
+            }
         }
-
-        EloManager.players[player.uniqueId] = playerData
     }
 }
