@@ -261,15 +261,13 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
 
         val player = if(game.drawRequester == game.white) game.black else game.white
 
-        BlockChess.instance.sendMessage("<yellow>You've been requested a draw.", player)
-
         val drawItem = createItem(BlockChess.mm.deserialize("<yellow>Accept Draw?"), Material.GRAY_WOOL
         , mutableListOf(
                 BlockChess.mm.deserialize("<yellow>Open a dialog to").decoration(TextDecoration.ITALIC, false),
                 BlockChess.mm.deserialize("<green>accept <yellow> or <red> decline <yellow> the draw.").decoration(TextDecoration.ITALIC, false)),
             1)
 
-        player?.inventory?.setItem(26, drawItem)
+        player?.inventory?.setItem(35, drawItem)
     }
 
     fun renderLastMove() {
@@ -420,7 +418,7 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
                         Component.text("Capture " + (BlockChess.instance.fenToName[targetPiece.fenSymbol.lowercase()] ?: "Piece"))
                     else Component.text("Move")
 
-                    val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.YELLOW_STAINED_GLASS_PANE
+                    val overlayMat = if (isCapture) Material.RED_STAINED_GLASS_PANE else Material.GREEN_STAINED_GLASS_PANE
                     val overlay = createItem(overlayName, overlayMat, mutableListOf(), 1)
                     setOverlayAtSquare(p, target, overlay)
                 }
