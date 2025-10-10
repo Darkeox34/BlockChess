@@ -5,7 +5,8 @@ plugins {
 }
 
 group = "gg.ethereallabs"
-version = "1.0"
+version = "1.0.1"
+val pluginName = "BlockChess"
 
 repositories {
     mavenCentral()
@@ -39,6 +40,12 @@ kotlin {
 
 tasks.build {
     dependsOn("shadowJar")
+}
+
+tasks.shadowJar {
+    archiveBaseName.set(pluginName)
+    archiveVersion.set(version.toString())
+    archiveClassifier.set("")
 }
 
 tasks.processResources {
