@@ -8,7 +8,9 @@ import com.github.bhlangonijr.chesslib.move.Move
 import gg.ethereallabs.blockChess.config.Config
 import gg.ethereallabs.blockChess.game.Game
 import gg.ethereallabs.blockChess.gui.models.BaseMenu
+import gg.ethereallabs.blockChess.gui.subgui.AcceptDrawGUI
 import gg.ethereallabs.blockChess.gui.subgui.PromotionGUI
+import gg.ethereallabs.blockChess.gui.subgui.RequestDrawGUI
 import gg.ethereallabs.blockChess.gui.subgui.SurrendGUI
 import gg.ethereallabs.blockChess.utils.SyncHelper.runSync
 import net.kyori.adventure.text.Component
@@ -254,11 +256,60 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
         inv?.setItem(26, clock)
     }
 
+    fun displayDrawRequest(){
+        if(game.drawRequester == null) return
+
+        val player = if(game.drawRequester == game.white) game.black else game.white
+
+        BlockChess.instance.sendMessage("<yellow>You've been requested a draw.", player)
+
+        val drawItem = createItem(BlockChess.mm.deserialize("<yellow>Accept Draw?"), Material.GRAY_WOOL
+        , mutableListOf(
+                BlockChess.mm.deserialize("<yellow>Open a dialog to").decoration(TextDecoration.ITALIC, false),
+                BlockChess.mm.deserialize("<green>accept <yellow> or <red> decline <yellow> the draw.").decoration(TextDecoration.ITALIC, false)),
+            1)
+
+        player?.inventory?.setItem(26, drawItem)
+    }
+
+    fun renderLastMove() {
+        val move = game.lastMove ?: return
+        val board = game.board
+        val piece = board.getPiece(move.to)
+
+        val lastMoveOverlay = createItem(
+            BlockChess.mm.deserialize("<yellow>Last Move"),
+            Material.YELLOW_STAINED_GLASS_PANE,
+            mutableListOf(
+                BlockChess.mm.deserialize("<gray>${BlockChess.instance.fenToName[piece.fenSymbol.lowercase()] ?: "Piece"} <yellow>to <gray>${move.to.name}")
+                    .decoration(TextDecoration.ITALIC, false)
+            ),
+            1
+        )
+
+        setOverlayAtSquare(game.white, move.from, lastMoveOverlay)
+        setOverlayAtSquare(game.black, move.from, lastMoveOverlay)
+
+        val movedPieceItem = createPieceItem(piece, move.to) ?: return
+        val meta = movedPieceItem.itemMeta
+        meta.addEnchant(org.bukkit.enchantments.Enchantment.SHARPNESS, 1, true)
+        meta.addItemFlags(
+            org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS,
+            org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES
+        )
+        movedPieceItem.setItemMeta(meta)
+
+        setOverlayAtSquare(game.white, move.to, movedPieceItem)
+        setOverlayAtSquare(game.black, move.to, movedPieceItem)
+    }
+
     override fun draw(p: Player?) {
         clearInventories(p)
         renderStaticControls()
+        displayDrawRequest()
         renderCapturedForPerspective(p)
         renderBoardPieces(p)
+        renderLastMove()
     }
 
     override fun handleClick(p: Player?, slot: Int, e: InventoryClickEvent?) {
@@ -285,9 +336,23 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
 
     private fun handleControlClicks(slot: Int): Boolean {
         when (slot) {
+            80 -> {
+                val player = if(playerIsWhite) game.white else game.black
+                if(player == null) return true
+
+                AcceptDrawGUI(this, player) { choice ->
+                    try {
+                        if (choice) {
+                            game.finalizeGame(Game.ResultType.DRAW)
+                        }
+                    } catch (_: Exception) {
+                    }
+                }.open(player)
+
+                return true
+            }
             53 -> {
                 val player = if(playerIsWhite) game.white else game.black
-
                 if(player == null) return true
 
                 SurrendGUI(this, player) { choice ->
@@ -302,6 +367,25 @@ class GameGUI(val game: Game, val playerIsWhite: Boolean) : BaseMenu(
                 return true
             }
             44 -> {
+                val player = if(playerIsWhite) game.white else game.black
+                if(player == null) return true
+
+                if(game.againstBot){
+                    BlockChess.instance.sendMessage("<red>You can't request a draw against CPU!", player)
+                    return true
+                }
+
+                RequestDrawGUI(this, player) { choice ->
+                    try {
+                        if (choice) {
+                            game.drawRequester = player
+                        }
+                        else{
+                            BlockChess.instance.sendMessage("You have canceled your draw request.")
+                        }
+                    } catch (_: Exception) {
+                    }
+                }.open(player)
 
                 return true
             }

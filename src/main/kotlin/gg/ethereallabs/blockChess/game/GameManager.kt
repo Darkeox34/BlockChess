@@ -2,7 +2,8 @@ package gg.ethereallabs.blockChess.game
 
 import gg.ethereallabs.blockChess.BlockChess
 import gg.ethereallabs.blockChess.elo.EloManager
-import gg.ethereallabs.blockChess.gui.subgui.DrawGUI
+import gg.ethereallabs.blockChess.gui.subgui.AcceptDrawGUI
+import gg.ethereallabs.blockChess.gui.subgui.RequestDrawGUI
 import gg.ethereallabs.blockChess.gui.subgui.PromotionGUI
 import gg.ethereallabs.blockChess.gui.subgui.SurrendGUI
 import org.bukkit.Bukkit
@@ -17,7 +18,8 @@ object GameManager {
 
     val playersPromoting: MutableMap<UUID, PromotionGUI?> = ConcurrentHashMap()
     val playersSurrending : MutableMap<UUID, SurrendGUI?> = ConcurrentHashMap()
-    val playersDrawing : MutableMap<UUID, DrawGUI> = ConcurrentHashMap()
+    val playersRequestingDraw : MutableMap<UUID, RequestDrawGUI> = ConcurrentHashMap()
+    val playersAcceptingDraw : MutableMap<UUID, AcceptDrawGUI> = ConcurrentHashMap()
 
     fun getGame(p: Player): Game? = activeGamesByPlayer[p.uniqueId]
 

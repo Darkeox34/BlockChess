@@ -28,11 +28,14 @@ class Game {
     val board = Board()
     var white: Player? = null
     var black: Player? = null
+    var drawRequester : Player? = null
     var moveList: MoveList = MoveList()
     var whiteEaten = mutableListOf<Piece>()
     var blackEaten = mutableListOf<Piece>()
     var ended = false
         private set
+
+    var lastMove : Move? = null
 
     private var taskId: Int = -1
     var whiteTimeMs: Long = 5 * 60 * 1000
@@ -55,7 +58,7 @@ class Game {
         WHITE_WIN, BLACK_WIN,
         DRAW_STALEMATE, DRAW_REPETITION, DRAW_INSUFFICIENT, DRAW_100MOVES,
         TIMEOUT_WHITE, TIMEOUT_BLACK,
-        WHITE_RESIGN, BLACK_RESIGN
+        WHITE_RESIGN, BLACK_RESIGN, DRAW
     }
 
     // ─────────────────────────────────────────────
@@ -160,6 +163,7 @@ class Game {
             ResultType.DRAW_REPETITION -> announceDraw(w, b, wData, bData, "🔁", "by repetition")
             ResultType.DRAW_INSUFFICIENT -> announceDraw(w, b, wData, bData, "🪶", "by insufficient material")
             ResultType.DRAW_100MOVES -> announceDraw(w, b, wData, bData, "⏳", "by 50 move rule")
+            ResultType.DRAW -> announceDraw(w, b, wData, bData, "⚖", "by agreed draw")
         }
 
         LocalStorage.savePlayerData(w)
@@ -193,6 +197,7 @@ class Game {
             ResultType.DRAW_REPETITION -> sendDrawMessage(human, "🔁", "by repetition")
             ResultType.DRAW_INSUFFICIENT -> sendDrawMessage(human, "🪶", "by insufficient material")
             ResultType.DRAW_100MOVES -> sendDrawMessage(human, "⏳", "by 50 move rule")
+            ResultType.DRAW -> sendDrawMessage(human, "⚖", "by agreed draw")
         }
     }
 
@@ -285,6 +290,7 @@ class Game {
     }
 
     fun onMoveMade(move: Move) {
+        lastMove = move
         guiWhite?.draw(white)
         guiBlack?.draw(black)
         moveList.add(move)

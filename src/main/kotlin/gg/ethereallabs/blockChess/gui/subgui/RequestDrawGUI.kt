@@ -9,12 +9,12 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 
-class DrawGUI(val gameGUI : GameGUI,
-                 val player: Player,
-                 val choice: (surrender: Boolean) -> Unit) : BaseMenu("Request Draw", 27) {
+class RequestDrawGUI(val gameGUI : GameGUI,
+                     val player: Player,
+                     val choice: (surrender: Boolean) -> Unit) : BaseMenu("Request Draw", 27) {
 
     init {
-        GameManager.playersDrawing.put(player.uniqueId, this)
+        GameManager.playersRequestingDraw.put(player.uniqueId, this)
     }
 
     override fun draw(p: Player?) {
@@ -37,6 +37,13 @@ class DrawGUI(val gameGUI : GameGUI,
             12 -> true
             14 -> false
             else -> null
+        }
+
+        if (draw != null) {
+            choice(draw)
+            p?.closeInventory()
+            gameGUI.open(p!!)
+            BlockChess.instance.sendMessage("<gray>You've requested a draw.")
         }
     }
 }

@@ -42,6 +42,9 @@ class PlayerListener: Listener {
 
         val promoGUI = GameManager.playersPromoting[player.uniqueId]
         val surrendGUI = GameManager.playersSurrending[player.uniqueId]
+        val requestDrawGUI = GameManager.playersRequestingDraw[player.uniqueId]
+        val acceptingDrawGUI = GameManager.playersAcceptingDraw[player.uniqueId]
+
         val gui = game.getPlayerGUI(player)
 
         if (event.inventory == promoGUI?.getInventory()) {
@@ -61,10 +64,29 @@ class PlayerListener: Listener {
             }, 3L)
             return
         }
+
+        if (event.inventory == requestDrawGUI?.getInventory()) {
+            GameManager.playersRequestingDraw.remove(player.uniqueId)
+            Bukkit.getScheduler().runTaskLater(BlockChess.instance, Runnable {
+                gui?.open(player)
+            }, 3L)
+            return
+        }
+
+        if (event.inventory == acceptingDrawGUI?.getInventory()) {
+            GameManager.playersAcceptingDraw.remove(player.uniqueId)
+            Bukkit.getScheduler().runTaskLater(BlockChess.instance, Runnable {
+                gui?.open(player)
+            }, 3L)
+            return
+        }
+
+
         if (gui?.getInventory() == event.inventory &&
             !GameManager.playersPromoting.containsKey(player.uniqueId) &&
             !GameManager.playersSurrending.containsKey(player.uniqueId) &&
-            !GameManager.playersDrawing.containsKey(player.uniqueId)
+            !GameManager.playersRequestingDraw.containsKey(player.uniqueId) &&
+            !GameManager.playersAcceptingDraw.containsKey(player.uniqueId)
         ) {
             Bukkit.getScheduler().runTaskLater(BlockChess.instance, Runnable {
                 gui.open(player)
